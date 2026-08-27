@@ -4,6 +4,8 @@ import time
 from fastapi import APIRouter, HTTPException
 
 from app.graph.main import expert_graph
+from app.graph.candidate_review import (begin_candidate_review,
+                                        resume_candidate_review)
 from app.knowledge.candidates import extract_candidate
 from app.runs import get_run_repository
 from app.schemas.domain import (AnalysisRequest, ExpertResult, FeedbackInput,
@@ -85,7 +87,9 @@ def create_knowledge_candidate(run_id: str) -> dict:
     if candidate_id is None:
         raise HTTPException(status_code=404, detail="Run not found")
     logger.info("knowledge_candidate_created candidate_id=%s run_id=%s", candidate_id, run_id)
-    return {"candidate_id": candidate_id, "run_id": run_id, "status": "PENDING_APPROVAL", "source_feedback_ids": feedback_ids, **draft.model_dump()}
+    candidate = {"candidate_id": candidate_id, "run_id": run_id, "status": "PENDING_APPROVAL", "source_feedback_ids": feedback_ids, **draft.model_dump()}
+    begin_candidate_review(candidate)
+    return candidate
 
 
 @router.get("/knowledge-candidates/{candidate_id}", response_model=KnowledgeCandidateResult)
@@ -99,11 +103,15 @@ def get_knowledge_candidate(candidate_id: str) -> dict:
 
 @router.post("/knowledge-candidates/{candidate_id}/reviews", response_model=CandidateReviewResult, status_code=201)
 def submit_candidate_review(candidate_id: str, review: CandidateReviewInput) -> dict:
-    """Record an expert's final approval or rejection of an unpublished candidate."""
-    status = get_run_repository().record_candidate_review(candidate_id, review.decision, review.reviewer_id, review.notes)
-    if status is None:
+    """Resume the paused HITL workflow with an expert's candidate decision."""
+    candidate = get_run_repository().get_candidate(candidate_id)
+    if candidate is None:
         raise HTTPException(status_code=404, detail="Knowledge candidate not found")
-    if status == "ALREADY_REVIEWED":
+    if candidate["status"] != "PENDING_APPROVAL":
         raise HTTPException(status_code=409, detail="Knowledge candidate has already been reviewed")
+    try:
+        status = resume_candidate_review(candidate_id, review)
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
     logger.info("knowledge_candidate_reviewed candidate_id=%s decision=%s reviewer_id=%s", candidate_id, review.decision, review.reviewer_id)
     return {"candidate_id": candidate_id, "decision": review.decision, "status": status}
