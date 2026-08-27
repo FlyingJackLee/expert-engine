@@ -1,7 +1,9 @@
 import logging
 
-from app.config import BM25_API_KEY, BM25_BASE_URL, BM25_ENABLED, BM25_INDEX, KNOWLEDGE_BACKEND
+from app.config import (BM25_API_KEY, BM25_BASE_URL, BM25_ENABLED, BM25_INDEX, KNOWLEDGE_BACKEND,
+                        WEB_SEARCH_API_KEY, WEB_SEARCH_BASE_URL, WEB_SEARCH_ENABLED)
 from app.knowledge.bm25 import OpenSearchBM25
+from app.knowledge.web import WebSearchClient
 from app.llm import gateway
 from app.knowledge.seed import SEED_EVIDENCE
 
@@ -19,7 +21,8 @@ def retrieve(query: str, types: set[str] | None = None, limit: int = 6, city: st
         raise ValueError(f"Unsupported KNOWLEDGE_BACKEND: {KNOWLEDGE_BACKEND}")
 
     bm25 = _bm25_retrieve(query, types, limit, city=city, topics=topics)
-    return _merge_evidence(primary, bm25, limit)
+    web = _web_retrieve(query, types, limit, city=city, topics=topics)
+    return _merge_evidence(primary, [*bm25, *web], limit)
 
 
 def _seed_retrieve(query: str, types: set[str] | None, limit: int) -> list[dict]:
@@ -62,3 +65,25 @@ def _merge_evidence(primary: list[dict], secondary: list[dict], limit: int) -> l
     """Deduplicate multi-source evidence and rank by normalized relevance."""
     merged = {item["evidence_id"]: item for item in [*primary, *secondary]}
     return sorted(merged.values(), key=lambda item: (float(item.get("relevance", 0.0)), item["evidence_id"]), reverse=True)[:limit]
+
+
+def _web_retrieve(query: str, types: set[str] | None, limit: int, *, city: str | None, topics: list[str] | None) -> list[dict]:
+    """Query optional web search and apply the same evidence filters locally."""
+    if not WEB_SEARCH_ENABLED or not WEB_SEARCH_BASE_URL:
+        return []
+    try:
+        results = WebSearchClient(WEB_SEARCH_BASE_URL, WEB_SEARCH_API_KEY).search(query, limit)
+    except Exception as exc:  # pragma: no cover - network behavior belongs to integration tests
+        logger.warning("Web retrieval unavailable; continuing with configured knowledge sources: %s", exc)
+        return []
+    filtered = []
+    for item in results:
+        metadata = item.get("metadata") or {}
+        if types and item.get("type") not in types:
+            continue
+        if city and metadata.get("city") not in (None, city):
+            continue
+        if topics and metadata.get("topics") and not set(topics).intersection(metadata["topics"]):
+            continue
+        filtered.append(item)
+    return filtered

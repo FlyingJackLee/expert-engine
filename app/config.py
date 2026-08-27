@@ -33,6 +33,9 @@ BM25_ENABLED = os.getenv("BM25_ENABLED", "false").lower() == "true"
 BM25_BASE_URL = os.getenv("BM25_BASE_URL", "")
 BM25_INDEX = os.getenv("BM25_INDEX", "knowledge")
 BM25_API_KEY = os.getenv("BM25_API_KEY", "")
+WEB_SEARCH_ENABLED = os.getenv("WEB_SEARCH_ENABLED", "false").lower() == "true"
+WEB_SEARCH_BASE_URL = os.getenv("WEB_SEARCH_BASE_URL", "")
+WEB_SEARCH_API_KEY = os.getenv("WEB_SEARCH_API_KEY", "")
 
 # Models remain opt-in: business users can validate deterministic behavior without
 # requiring credentials or accidentally sending data to an external provider.
