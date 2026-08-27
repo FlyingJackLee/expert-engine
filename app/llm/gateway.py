@@ -61,6 +61,10 @@ def resolve_model_profile(profile_name: str) -> ModelProfile:
 class LLMGateway:
     """Provider-neutral boundary for schema-constrained model generation."""
 
+    def resolve_model_profile(self, profile_name: str) -> ModelProfile:
+        """Expose resolved endpoint settings to persistence integrations safely."""
+        return resolve_model_profile(profile_name)
+
     def enabled_for(self, profile_name: str) -> bool:
         """Only enable a node when global opt-in and a node-specific model exist."""
         profile = resolve_model_profile(profile_name)

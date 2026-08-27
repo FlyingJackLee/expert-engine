@@ -73,6 +73,8 @@ PostgreSQL 检索会融合全文排序、`pg_trgm` 相似度和词覆盖，并�
 
 向量检索通过 `EMBEDDING_ENABLED=true`、`EMBEDDING_MODEL=<model-name>` 显式启用。启用后知识文档导入和专家知识发布会生成 chunk embedding；未配置时不会调用 embedding 服务。当前向量列和查询不固定维度，切换模型后应安排旧资料向量重建。
 
+切换模型后可显式运行 `uv run python -m scripts.reindex_embeddings` 重建现有 chunk 向量；脚本按批次处理并记录 `embedding_model`，embedding 未启用时会安全跳过。
+
 采集目录中的城市 JSONL 数据可在不写数据库的情况下先做预检；正式导入默认只接受 `VERIFIED` 记录：
 
 ```bash

@@ -38,7 +38,7 @@ flowchart LR
 | 步骤 | 目标主要方法 | 是否用大模型 | 目标核心技术 | 当前进度 |
 | --- | --- | --- | --- | --- |
 | 事件 | 事件接入 + 标准化 | 是 | LangGraph Node + LLM Structured Output | **部分完成**：支持结构化输出和规则降级，LLM 默认关闭。 |
-| Research | 多源检索与研究 | 是 | Hybrid RAG + SQL + BM25 + Vector + Web/内部库 | **部分完成**：PostgreSQL 元数据过滤、全文/trigram/词覆盖融合、可选 embedding 写入与 pgvector 查询已具备；未接专用 BM25、Web。 |
+| Research | 多源检索与研究 | 是 | Hybrid RAG + SQL + BM25 + Vector + Web/内部库 | **部分完成**：PostgreSQL 元数据过滤、全文/trigram/词覆盖融合、embedding 写入/重建与 pgvector 查询已具备；未接专用 BM25、Web。 |
 | Expert Reasoning | 专家推理 | 是，核心 | LLM + Expert Profile + Rules + Case Memory | **部分完成**：Profile、Runtime、受约束 LLM 需求推理、候选复核、规则、案例匹配已具备；未配置模型时保持确定性匹配。 |
 | Evidence Grounding | 证据绑定与校验 | 少量 | Evidence Engine + Rerank + Citation Mapping | **部分完成**：证据 ID、来源 URL、结论—证据映射、chunk 级引用、确定性 rerank、缺口审核已具备。 |
 | 商务判断 | 结构化综合判断 | 是 | LLM Synthesis + 确定性评分 | **部分完成**：已支持 Schema 约束 LLM 综合判断与确定性评分；未配置模型时规则模板兜底。 |
@@ -351,3 +351,9 @@ flowchart LR
 - 知识文档导入与审核通过的专家知识发布会复用 Gateway 生成 chunk embedding，并在同一文档事务中写入向量。
 - embedding 未启用时写入 NULL，词法检索保持完整可用；provider 返回数量不匹配时拒绝整次写入。
 - 查询只对向量维度一致的 chunk 计算 cosine 距离，支持模型切换期间安全共存；旧模型向量需后续重建索引。
+
+### 2026-08-27 — 向量重建运维能力
+
+- 新增 `scripts.reindex_embeddings`，可在 embedding 模型切换后批量重建现有 chunk 向量。
+- 每个 chunk 记录生成它的 embedding model；重建按批次执行，provider 未启用时安全跳过，不影响词法检索。
+- 重建不是在线分析自动步骤，需由部署运维显式执行并观察 provider 成本与失败情况。

@@ -57,11 +57,11 @@ class PostgresKnowledgeRepository:
         for index, content in enumerate(document["chunks"]):
             cursor.execute(
                 """
-                INSERT INTO knowledge_chunks (chunk_id, document_id, chunk_index, content, embedding)
-                VALUES (%s, %s, %s, %s, %s::vector)
-                ON CONFLICT (document_id, chunk_index) DO UPDATE SET content = EXCLUDED.content, embedding = EXCLUDED.embedding
+                INSERT INTO knowledge_chunks (chunk_id, document_id, chunk_index, content, embedding, embedding_model)
+                VALUES (%s, %s, %s, %s, %s::vector, %s)
+                ON CONFLICT (document_id, chunk_index) DO UPDATE SET content = EXCLUDED.content, embedding = EXCLUDED.embedding, embedding_model = EXCLUDED.embedding_model
                 """,
-                (f"{document['document_id']}:chunk:{index}", document["document_id"], index, content, _vector_literal(embeddings[index]) if embeddings else None),
+                (f"{document['document_id']}:chunk:{index}", document["document_id"], index, content, _vector_literal(embeddings[index]) if embeddings else None, gateway.resolve_model_profile("embedding").model if embeddings else None),
             )
 
     def search(self, query: str, types: set[str] | None = None, limit: int = 6, *, city: str | None = None, topics: list[str] | None = None, query_embedding: list[list[float]] | None = None) -> list[dict[str, Any]]:
@@ -104,6 +104,32 @@ class PostgresKnowledgeRepository:
             {"evidence_id": row["evidence_id"], "type": row["type"], "source_id": row["source_id"], "title": row["title"], "content": row["content"], "organization": row["organization"], "source_url": row["source_url"], "relevance": _lexical_relevance(row, len(query_terms)), "reliability": row["reliability"], "effective_date": row["effective_date"].isoformat() if isinstance(row["effective_date"], date) else None, "chunk_index": row["chunk_index"], "metadata": row["metadata"]}
             for row in rows
         ]
+
+    def reindex_embeddings(self, batch_size: int = 32) -> dict[str, int | str]:
+        """Regenerate all chunk vectors with the currently configured embedding model."""
+        if batch_size < 1:
+            raise ValueError("batch_size must be positive")
+        with psycopg.connect(self.dsn, row_factory=dict_row) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT chunk_id, content FROM knowledge_chunks ORDER BY chunk_id")
+                chunks = cursor.fetchall()
+        if not chunks:
+            return {"status": "EMPTY", "processed": 0}
+        processed = 0
+        model = gateway.resolve_model_profile("embedding").model
+        for start in range(0, len(chunks), batch_size):
+            batch = chunks[start : start + batch_size]
+            vectors = gateway.embed_texts([item["content"] for item in batch])
+            if vectors is None:
+                return {"status": "SKIPPED", "processed": processed}
+            if len(vectors) != len(batch):
+                raise ValueError("Embedding provider returned a vector count different from reindex batch")
+            with psycopg.connect(self.dsn) as connection:
+                with connection.cursor() as cursor:
+                    for item, vector in zip(batch, vectors, strict=True):
+                        cursor.execute("UPDATE knowledge_chunks SET embedding = %s::vector, embedding_model = %s WHERE chunk_id = %s", (_vector_literal(vector), model, item["chunk_id"]))
+            processed += len(batch)
+        return {"status": "COMPLETED", "processed": processed}
 
 
 def _lexical_relevance(row: dict[str, Any], term_count: int) -> float:
