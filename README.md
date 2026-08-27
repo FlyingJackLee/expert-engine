@@ -91,6 +91,8 @@ Admin 后台功能规划见 [`docs/admin-console-plan.md`](docs/admin-console-pl
 
 面向业务人员的数据收集说明见 [`docs/data-collection/business-guide.md`](docs/data-collection/business-guide.md)，包含文件夹结构、填写示例、状态定义和提交检查清单。
 
+可直接参考的业务填写示例包见 [`docs/data-collection/example-package/`](docs/data-collection/example-package/)。
+
 采集目录中的城市 JSONL 数据可在不写数据库的情况下先做预检；正式导入默认只接受 `VERIFIED` 记录：
 
 ```bash
