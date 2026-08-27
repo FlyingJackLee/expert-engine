@@ -93,6 +93,19 @@ Admin 后台功能规划见 [`docs/admin-console-plan.md`](docs/admin-console-pl
 
 可直接参考的业务填写示例包见 [`docs/data-collection/example-package/`](docs/data-collection/example-package/)。
 
+业务人员填写 CSV 后，管理员可先转换为系统 JSONL，再通过 Gradio 或命令行导入：
+
+```bash
+uv run python -m scripts.convert_business_package \
+  docs/data-collection/example-package \
+  /tmp/expert-jsonl
+
+uv run python -m scripts.ingest_dataset /tmp/expert-jsonl --check
+uv run python -m scripts.ingest_dataset /tmp/expert-jsonl
+```
+
+转换脚本会生成 `source_manifest.jsonl`、`events.jsonl`、`organization_cards.jsonl`、`capability_cards.jsonl` 和 `case_cards.jsonl`。`06_专家评测样本.csv` 不会导入知识库，需要单独整理为 Benchmark；只有 `VERIFIED` 记录会被正式导入。
+
 采集目录中的城市 JSONL 数据可在不写数据库的情况下先做预检；正式导入默认只接受 `VERIFIED` 记录：
 
 ```bash
