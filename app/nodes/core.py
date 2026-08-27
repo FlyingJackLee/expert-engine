@@ -306,6 +306,13 @@ def review(state: dict) -> dict:
         issues.append({"type": "MISSING_POLICY_EVIDENCE", "message": "缺乏政策直接证据。"})
     if not state["departments"][0]["evidence_ids"]:
         issues.append({"type": "MISSING_DEPARTMENT_EVIDENCE", "message": "缺乏可靠处室职责依据。"})
+    grounding_targets = set()
+    for item in state.get("grounding", []):
+        if item.get("status") == "UNGROUNDED":
+            grounding_targets.add(item.get("claim_type", "EVIDENCE"))
+            invalid = [citation.get("validation", {}).get("missing", []) for citation in item.get("citations", []) if not citation.get("validation", {}).get("complete", True)]
+            detail = "；".join("、".join(fields) for fields in invalid if fields) or "引用缺少可核验来源"
+            issues.append({"type": "INVALID_CITATION", "message": f"{item.get('claim_type', 'EVIDENCE')} 引用未通过完整性校验：{detail}。"})
     runtime = load_runtime(state["expert_profile"])
     critic_context = {"grounding": state["grounding"], "evidence_types": sorted(evidence_types), "score": state["score"]}
     try:
@@ -321,7 +328,8 @@ def review(state: dict) -> dict:
                 issues.append(item)
                 known.add((item["type"], item["message"]))
     decision = "APPROVE" if not issues and (not critic_result or critic_result.decision == "APPROVE") else "RESEARCH_MORE"
-    return {"review_result": {"decision": decision, "confidence": state["score"]["confidence"], "issues": issues, "retry_targets": ["ORGANIZATION"] if issues else []}}
+    retry_targets = sorted(grounding_targets) or (["ORGANIZATION"] if issues else [])
+    return {"review_result": {"decision": decision, "confidence": state["score"]["confidence"], "issues": issues, "retry_targets": retry_targets}}
 
 
 def finalize(state: dict) -> dict:
