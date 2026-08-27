@@ -86,6 +86,8 @@ Admin 后台功能规划见 [`docs/admin-console-plan.md`](docs/admin-console-pl
 
 各类数据的存储位置、RAG 使用阶段以及 Benchmark 边界见 [`docs/data-storage-guide.md`](docs/data-storage-guide.md)。
 
+完整接口说明见 [`docs/api.md`](docs/api.md)，包括 Dify 接入、运行状态、反馈和专家知识闭环。
+
 采集目录中的城市 JSONL 数据可在不写数据库的情况下先做预检；正式导入默认只接受 `VERIFIED` 记录：
 
 ```bash
