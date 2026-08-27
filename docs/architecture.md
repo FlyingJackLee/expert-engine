@@ -47,8 +47,8 @@ flowchart LR
 | 反馈 | 结构化结果记录 | 可辅助 | Form + LLM 信息抽取 | **部分完成**：已有通用反馈 API 与审计表；未接表单界面和 LLM 信息抽取。 |
 | Knowledge Candidate | 经验提炼 | 是 | LLM Knowledge Extraction | **部分完成**：反馈驱动的候选提炼、来源反馈快照、待审核持久化与查询 API 已具备；尚未接入专家审批。 |
 | 专家审核 | 人工审批 | 否为主 | LangGraph Interrupt / HITL | **部分完成**：可审核分析 Run 和知识候选，并审计通过/驳回决定；候选审核已接 LangGraph Interrupt（当前为进程内 checkpoint）。 |
-| Expert Knowledge | 正式知识发布 | 否 | PostgreSQL + pgvector + 版本治理 | **部分完成**：PostgreSQL 与 JSONL 导入完成，pgvector/版本治理未接入。 |
-| 下一次推理 | 检索历史经验再推理 | 是 | Expert Knowledge Retrieval + LangGraph | **未开始**：当前只检索手工导入资料，尚未利用实践反馈。 |
+| Expert Knowledge | 正式知识发布 | 否 | PostgreSQL + pgvector + 版本治理 | **部分完成**：审核通过候选可事务式发布到 PostgreSQL 知识文档，具备按专家递增版本与候选来源追溯；未接 pgvector、回滚版本。 |
+| 下一次推理 | 检索历史经验再推理 | 是 | Expert Knowledge Retrieval + LangGraph | **部分完成**：Research 已检索已发布 `INTERNAL` 专家知识作为补充上下文；尚未实现向量检索与经验效果评测。 |
 
 ### 当前实际运行链路
 
@@ -72,6 +72,8 @@ flowchart LR
     CandidateStore --> CandidateReview[专家审核 API]
     CandidateReview --> HITL[LangGraph Interrupt / Resume]
     HITL --> CandidateAudit[(expert_knowledge_candidate_reviews)]
+    CandidateAudit --> Publish[正式发布 API]
+    Publish --> Published[(knowledge_documents<br/>INTERNAL expert knowledge)]
 ```
 
 > 更新约定：每次核心开发完成后，必须同步更新本表的“当前进度”、上方目标流程图的状态颜色、当前实际运行链路及“演进记录”。
@@ -113,6 +115,9 @@ flowchart LR
     CandidateStore --> ExpertReview[专家审核]
     ExpertReview --> HITL[LangGraph 暂停 / 恢复]
     HITL --> CandidateAudit[(候选审核审计)]
+    CandidateAudit --> Publish[版本化知识发布]
+    Publish --> Knowledge[(knowledge_documents / publications)]
+    Knowledge --> Retrieve
 
     Dataset[城市 JSONL 数据集] --> Check[预检 / 导入器]
     Check --> Knowledge[(PostgreSQL 知识库)]
@@ -265,3 +270,9 @@ flowchart LR
 - 候选创建完成后启动独立审核 Graph，并在 `interrupt` 节点暂停；审核 API 使用候选 ID 对应的线程以 `Command(resume=...)` 恢复。
 - 恢复后的 Graph 本地校验专家输入，再写入候选状态与审核审计；自动系统不会替代专家作出批准结论。
 - 当前使用 LangGraph 进程内 checkpointer，审核结果已持久化到 PostgreSQL；生产多实例/重启恢复仍需接 PostgreSQL checkpointer。
+
+### 2026-08-27 — Expert Knowledge 正式发布
+
+- 仅 `APPROVED` 候选可发布；发布后状态变为 `PUBLISHED`，待审或驳回候选不会写入知识库。
+- 发布在同一 PostgreSQL 事务内写入 `knowledge_documents`、chunk 与 `expert_knowledge_publications`；发布记录保存候选来源、专家 ID 与递增版本。
+- Research 新增 `INTERNAL` 补充检索，使已发布经验可供后续推理参考，但不会替代政策或处室职责等主证据。

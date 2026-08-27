@@ -36,3 +36,5 @@ LLM_SYNTHESIS_MODEL = os.getenv("LLM_SYNTHESIS_MODEL", "")
 LLM_REVIEW_MODEL = os.getenv("LLM_REVIEW_MODEL", "")
 LLM_NEED_MODEL = os.getenv("LLM_NEED_MODEL", "")
 LLM_KNOWLEDGE_MODEL = os.getenv("LLM_KNOWLEDGE_MODEL", "")
+# Published expert knowledge remains lower-confidence than primary source material.
+PUBLISHED_KNOWLEDGE_RELIABILITY = float(os.getenv("PUBLISHED_KNOWLEDGE_RELIABILITY", "0.8"))

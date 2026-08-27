@@ -10,7 +10,8 @@ from app.knowledge.candidates import extract_candidate
 from app.runs import get_run_repository
 from app.schemas.domain import (AnalysisRequest, ExpertResult, FeedbackInput,
                                 FeedbackResult, CandidateReviewInput, CandidateReviewResult,
-                                KnowledgeCandidateResult, ManualReviewInput,
+                                KnowledgeCandidateResult, KnowledgePublicationResult,
+                                ManualReviewInput,
                                 ManualReviewResult)
 
 router = APIRouter(prefix="/api/v1/expert", tags=["expert-runs"])
@@ -115,3 +116,15 @@ def submit_candidate_review(candidate_id: str, review: CandidateReviewInput) -> 
         raise HTTPException(status_code=409, detail=str(error)) from error
     logger.info("knowledge_candidate_reviewed candidate_id=%s decision=%s reviewer_id=%s", candidate_id, review.decision, review.reviewer_id)
     return {"candidate_id": candidate_id, "decision": review.decision, "status": status}
+
+
+@router.post("/knowledge-candidates/{candidate_id}/publish", response_model=KnowledgePublicationResult, status_code=201)
+def publish_knowledge_candidate(candidate_id: str) -> dict:
+    """Publish one expert-approved candidate as a versioned internal knowledge document."""
+    publication = get_run_repository().publish_candidate(candidate_id)
+    if publication is None:
+        raise HTTPException(status_code=404, detail="Knowledge candidate not found")
+    if publication["status"] != "PUBLISHED":
+        raise HTTPException(status_code=409, detail="Only approved knowledge candidates can be published")
+    logger.info("knowledge_candidate_published candidate_id=%s document_id=%s version=%s", candidate_id, publication["document_id"], publication["version"])
+    return publication

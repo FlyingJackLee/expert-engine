@@ -15,5 +15,6 @@ def test_research_separates_evidence_types_and_applies_city_to_local_sources(mon
         ({"RESPONSIBILITY"}, "重庆", None),
         ({"CAPABILITY"}, None, ["城市生命线"]),
         ({"CASE"}, None, ["城市生命线"]),
+        ({"INTERNAL"}, None, None),
     ]
     assert result["research_city"] == "重庆"

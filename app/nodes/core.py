@@ -104,6 +104,9 @@ def research(state: dict) -> dict:
     evidence.extend(retrieve(query, {"RESPONSIBILITY"}, city=city))
     evidence.extend(retrieve(query, {"CAPABILITY"}, topics=topics))
     evidence.extend(retrieve(query, {"CASE"}, topics=topics))
+    # Published expert lessons are supplementary internal context, never a
+    # substitute for policy or responsibility evidence in deterministic matching.
+    evidence.extend(retrieve(query, {"INTERNAL"}))
     deduplicated = {item["evidence_id"]: item for item in evidence}
     ranked_evidence = rerank_evidence(query, list(deduplicated.values()))
     history = list(state.get("research_history", []))

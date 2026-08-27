@@ -8,7 +8,9 @@ from uuid import uuid4
 import psycopg
 from psycopg.rows import dict_row
 
-from app.config import DATABASE_URL, RUN_BACKEND
+from app.config import (DATABASE_URL, PUBLISHED_KNOWLEDGE_RELIABILITY,
+                        RUN_BACKEND)
+from app.knowledge.postgres import PostgresKnowledgeRepository
 
 
 class RunRepository(Protocol):
@@ -29,6 +31,8 @@ class RunRepository(Protocol):
         """Return a persisted candidate by its stable identifier."""
     def record_candidate_review(self, candidate_id: str, decision: str, reviewer_id: str, notes: str) -> str | None:
         """Audit an expert decision and return the resulting candidate status."""
+    def publish_candidate(self, candidate_id: str) -> dict | None:
+        """Publish an approved candidate and return its versioned knowledge record."""
 
 
 class InMemoryRunRepository:
@@ -101,6 +105,23 @@ class InMemoryRunRepository:
         candidate["status"] = status
         candidate.setdefault("reviews", []).append({"review_id": str(uuid4()), "decision": decision, "reviewer_id": reviewer_id, "notes": notes})
         return status
+
+    def publish_candidate(self, candidate_id: str) -> dict | None:
+        """Mark an approved local candidate published and return its version identity."""
+        candidate = self.get_candidate(candidate_id)
+        if candidate is None:
+            return None
+        if candidate["status"] != "APPROVED":
+            return {"status": candidate["status"]}
+        candidate["status"] = "PUBLISHED"
+        publications = [item for record in self.records.values() for item in record.get("publications", [])]
+        version = 1 + sum(item["expert_id"] == candidate["expert_id"] for item in publications)
+        publication = {"publication_id": str(uuid4()), "candidate_id": candidate_id, "document_id": f"expert-knowledge:{candidate['expert_id']}:v{version}", "expert_id": candidate["expert_id"], "version": version, "status": "PUBLISHED"}
+        for record in self.records.values():
+            if candidate in record.get("candidates", []):
+                record.setdefault("publications", []).append(publication)
+                break
+        return publication
 
 
 class PostgresRunRepository:
@@ -205,6 +226,40 @@ class PostgresRunRepository:
                     (str(uuid4()), candidate_id, decision, reviewer_id, notes),
                 )
         return status
+
+    def publish_candidate(self, candidate_id: str) -> dict | None:
+        """Atomically publish an approved candidate into the internal knowledge store."""
+        with psycopg.connect(self.dsn, row_factory=dict_row) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT candidate_id, run_id, expert_id, status, content, source_feedback_ids FROM expert_knowledge_candidates WHERE candidate_id = %s FOR UPDATE", (candidate_id,))
+                candidate = cursor.fetchone()
+                if candidate is None:
+                    return None
+                if candidate["status"] != "APPROVED":
+                    return {"status": candidate["status"]}
+                # Serialize versions per expert so concurrent publishing cannot issue
+                # the same document identity or silently overwrite prior knowledge.
+                cursor.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (candidate["expert_id"],))
+                cursor.execute("SELECT COALESCE(MAX(version), 0) + 1 AS version FROM expert_knowledge_publications WHERE expert_id = %s", (candidate["expert_id"],))
+                version = cursor.fetchone()["version"]
+                document_id = f"expert-knowledge:{candidate['expert_id']}:v{version}"
+                content = candidate["content"]
+                document = {
+                    "document_id": document_id,
+                    "source_type": "INTERNAL",
+                    "title": content["title"],
+                    "chunks": ["\n".join([content["summary"], *content["lessons"]])],
+                    "source_url": None,
+                    "organization": None,
+                    "reliability": PUBLISHED_KNOWLEDGE_RELIABILITY,
+                    "effective_date": None,
+                    "metadata": {"record_type": "expert_knowledge", "candidate_id": candidate_id, "version": version, "source_feedback_ids": candidate["source_feedback_ids"], "supporting_evidence_ids": content.get("supporting_evidence_ids", [])},
+                }
+                PostgresKnowledgeRepository.ingest_with_cursor(cursor, document)
+                publication_id = str(uuid4())
+                cursor.execute("INSERT INTO expert_knowledge_publications (publication_id, candidate_id, document_id, expert_id, version, status) VALUES (%s, %s, %s, %s, %s, %s)", (publication_id, candidate_id, document_id, candidate["expert_id"], version, "PUBLISHED"))
+                cursor.execute("UPDATE expert_knowledge_candidates SET status = %s WHERE candidate_id = %s", ("PUBLISHED", candidate_id))
+        return {"publication_id": publication_id, "candidate_id": candidate_id, "document_id": document_id, "expert_id": candidate["expert_id"], "version": version, "status": "PUBLISHED"}
 
 
 _memory_repository = InMemoryRunRepository()

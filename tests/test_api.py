@@ -84,3 +84,20 @@ def test_expert_can_approve_a_pending_knowledge_candidate_once():
     assert client.get(f"/api/v1/expert/knowledge-candidates/{candidate['candidate_id']}").json()["status"] == "APPROVED"
     repeat = client.post(f"/api/v1/expert/knowledge-candidates/{candidate['candidate_id']}/reviews", json={"decision": "REJECT", "reviewer_id": "domain_expert_02", "notes": "不应覆盖第一位专家的审核结果。"})
     assert repeat.status_code == 409
+
+
+def test_only_an_approved_candidate_can_be_published_as_expert_knowledge():
+    """Publishing promotes reviewed experience once and rejects pending candidates."""
+    client = TestClient(app)
+    created = client.post("/api/v1/expert/analyze", json={"event": {"title": "城市生命线建设实施方案", "content": "某市发布城市生命线安全工程建设实施方案，启动燃气、供水和桥梁监测预警平台建设。"}})
+    run_id = created.json()["run_id"]
+    client.post(f"/api/v1/expert/runs/{run_id}/feedback", json={"outcome": "完成需求沟通", "notes": "客户要求先明确协同范围后再安排下一次沟通。", "submitted_by": "sales_owner_01"})
+    candidate = client.post(f"/api/v1/expert/runs/{run_id}/knowledge-candidates").json()
+    assert client.post(f"/api/v1/expert/knowledge-candidates/{candidate['candidate_id']}/publish").status_code == 409
+    approved = client.post(f"/api/v1/expert/knowledge-candidates/{candidate['candidate_id']}/reviews", json={"decision": "APPROVE", "reviewer_id": "domain_expert_01", "notes": "可发布为经过审核的内部经验。"})
+    assert approved.status_code == 201
+    published = client.post(f"/api/v1/expert/knowledge-candidates/{candidate['candidate_id']}/publish")
+    assert published.status_code == 201
+    assert published.json()["status"] == "PUBLISHED"
+    assert published.json()["version"] >= 1
+    assert client.get(f"/api/v1/expert/knowledge-candidates/{candidate['candidate_id']}").json()["status"] == "PUBLISHED"

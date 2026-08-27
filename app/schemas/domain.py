@@ -265,6 +265,17 @@ class CandidateReviewResult(BaseModel):
     status: str
 
 
+class KnowledgePublicationResult(BaseModel):
+    """Published knowledge identity, version and source candidate provenance."""
+
+    publication_id: str
+    candidate_id: str
+    document_id: str
+    expert_id: str
+    version: int = Field(ge=1)
+    status: str
+
+
 class ExpertResult(BaseModel):
     """Full evidence-grounded response returned by an expert analysis run."""
     run_id: str

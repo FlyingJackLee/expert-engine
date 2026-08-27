@@ -30,7 +30,12 @@ class PostgresKnowledgeRepository:
         """
         with psycopg.connect(self.dsn) as connection:
             with connection.cursor() as cursor:
-                cursor.execute(
+                self.ingest_with_cursor(cursor, document)
+
+    @staticmethod
+    def ingest_with_cursor(cursor: Any, document: dict[str, Any]) -> None:
+        """Upsert a document using a caller-owned transaction cursor."""
+        cursor.execute(
                     """
                     INSERT INTO knowledge_documents
                     (document_id, source_type, title, source_url, organization, reliability, effective_date, metadata)
@@ -42,16 +47,16 @@ class PostgresKnowledgeRepository:
                       effective_date = EXCLUDED.effective_date, metadata = EXCLUDED.metadata
                     """,
                     {**document, "effective_date": document.get("effective_date"), "metadata": json.dumps(document.get("metadata", {}))},
-                )
-                for index, content in enumerate(document["chunks"]):
-                    cursor.execute(
+        )
+        for index, content in enumerate(document["chunks"]):
+            cursor.execute(
                         """
                         INSERT INTO knowledge_chunks (chunk_id, document_id, chunk_index, content)
                         VALUES (%s, %s, %s, %s)
                         ON CONFLICT (document_id, chunk_index) DO UPDATE SET content = EXCLUDED.content
                         """,
                         (f"{document['document_id']}:chunk:{index}", document["document_id"], index, content),
-                    )
+            )
 
     def search(self, query: str, types: set[str] | None = None, limit: int = 6, *, city: str | None = None, topics: list[str] | None = None) -> list[dict[str, Any]]:
         """Return ranked evidence with metadata filters applied in the database."""
