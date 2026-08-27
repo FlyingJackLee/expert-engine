@@ -69,6 +69,8 @@ KNOWLEDGE_BACKEND=postgres uv run uvicorn app.main:app --reload
 
 此时相同的分析 API 将从 PostgreSQL（宿主机端口 `5433`）中读取证据。文档可通过 `POST /api/v1/knowledge/documents` 写入；原始文件对象存储、嵌入生成与 OpenSearch BM25 将在后续检索增强迭代接入。
 
+PostgreSQL 检索会融合全文排序、`pg_trgm` 相似度和词覆盖，并继续使用城市、主题、证据类型与知识生命周期过滤；运行 `scripts.migrate` 会创建所需索引。
+
 采集目录中的城市 JSONL 数据可在不写数据库的情况下先做预检；正式导入默认只接受 `VERIFIED` 记录：
 
 ```bash

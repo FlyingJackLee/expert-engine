@@ -38,7 +38,7 @@ flowchart LR
 | 步骤 | 目标主要方法 | 是否用大模型 | 目标核心技术 | 当前进度 |
 | --- | --- | --- | --- | --- |
 | 事件 | 事件接入 + 标准化 | 是 | LangGraph Node + LLM Structured Output | **部分完成**：支持结构化输出和规则降级，LLM 默认关闭。 |
-| Research | 多源检索与研究 | 是 | Hybrid RAG + SQL + BM25 + Vector + Web/内部库 | **部分完成**：PostgreSQL 关键词、城市/主题过滤、研究规划；未接向量、BM25、Web、内部库。 |
+| Research | 多源检索与研究 | 是 | Hybrid RAG + SQL + BM25 + Vector + Web/内部库 | **部分完成**：PostgreSQL 元数据过滤、全文排序、trigram 相似度、词覆盖融合与研究规划已具备；未接向量、专用 BM25、Web。 |
 | Expert Reasoning | 专家推理 | 是，核心 | LLM + Expert Profile + Rules + Case Memory | **部分完成**：Profile、Runtime、受约束 LLM 需求推理、规则、案例匹配已具备；候选匹配仍以确定性规则为主。 |
 | Evidence Grounding | 证据绑定与校验 | 少量 | Evidence Engine + Rerank + Citation Mapping | **部分完成**：证据 ID、来源 URL、结论—证据映射、chunk 级引用、确定性 rerank、缺口审核已具备。 |
 | 商务判断 | 结构化综合判断 | 是 | LLM Synthesis + 确定性评分 | **部分完成**：已支持 Schema 约束 LLM 综合判断与确定性评分；未配置模型时规则模板兜底。 |
@@ -56,7 +56,7 @@ flowchart LR
 flowchart LR
     Input[事件输入] --> Parse[事件解析]
     Parse --> Plan[研究规划]
-    Plan --> Search[定向检索]
+    Plan --> Search[定向混合词法检索]
     Search --> History[分离历史内部经验]
     History --> Match[证据驱动匹配与排序]
     Match --> Ground[结论—证据映射]
@@ -95,12 +95,14 @@ flowchart LR
 
     Graph --> Event[事件解析]
     Event --> Plan[研究规划]
-    Plan --> Retrieve[定向检索组件]
+    Plan --> Retrieve[定向混合检索组件]
 
     Retrieve --> Policy[政策 / 行业证据<br/>按城市 + 主题过滤]
     Retrieve --> Org[组织 / 处室职责<br/>按城市过滤]
     Retrieve --> Capability[能力卡<br/>按主题全库匹配]
     Retrieve --> Case[案例卡<br/>按主题全库匹配]
+    FullText[PostgreSQL 全文排序] --> Retrieve
+    Trigram[pg_trgm 相似度] --> Retrieve
     Retrieve --> History[历史知识上下文<br/>仅 INTERNAL]
 
     Policy --> Inference[证据驱动匹配与排序<br/>相关度 / 可靠度 / 上下文]
@@ -312,3 +314,10 @@ flowchart LR
 - Benchmark 新增历史知识 ID、内部类型隔离与覆盖率检查，防止发布知识在检索或重构后静默失效。
 - 评测同时要求当前政策、职责和案例主证据仍存在，避免将经验知识错误升级为主事实来源。
 - 当前仅有种子契约样本；重庆真实数据与人工效果标签到位后，应扩充为发布门槛评测集。
+
+### 2026-08-27 — PostgreSQL 混合词法检索
+
+- PostgreSQL 检索融合标题/正文词覆盖、`ts_rank_cd` 全文排序与 `pg_trgm` 相似度，并保留类型、城市、主题和知识生命周期过滤。
+- 为避免升级降低既有候选匹配质量，对外 relevance 保留原 SQL 基线与融合分中的较高值；数据库排序仍由完整词法信号决定。
+- 为 chunk 正文新增全文与 trigram GIN 索引；无词边界语言可由 trigram 提供稳定的补充召回信号。
+- 现有确定性 rerank 继续作为第二层排序；向量、专用 BM25 与 Web 检索仍是后续可插拔增强。
