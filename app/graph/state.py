@@ -21,6 +21,7 @@ class ExpertState(TypedDict, total=False):
     organizations: list[dict[str, Any]]
     departments: list[dict[str, Any]]
     capabilities: list[dict[str, Any]]
+    candidate_reasoning: dict[str, Any]
     grounding: list[dict[str, Any]]
     opportunity: dict[str, Any]
     score: dict[str, Any]

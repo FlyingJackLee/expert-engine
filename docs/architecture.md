@@ -39,7 +39,7 @@ flowchart LR
 | --- | --- | --- | --- | --- |
 | 事件 | 事件接入 + 标准化 | 是 | LangGraph Node + LLM Structured Output | **部分完成**：支持结构化输出和规则降级，LLM 默认关闭。 |
 | Research | 多源检索与研究 | 是 | Hybrid RAG + SQL + BM25 + Vector + Web/内部库 | **部分完成**：PostgreSQL 元数据过滤、全文排序、trigram 相似度、词覆盖融合与研究规划已具备；未接向量、专用 BM25、Web。 |
-| Expert Reasoning | 专家推理 | 是，核心 | LLM + Expert Profile + Rules + Case Memory | **部分完成**：Profile、Runtime、受约束 LLM 需求推理、规则、案例匹配已具备；候选匹配仍以确定性规则为主。 |
+| Expert Reasoning | 专家推理 | 是，核心 | LLM + Expert Profile + Rules + Case Memory | **部分完成**：Profile、Runtime、受约束 LLM 需求推理、候选复核、规则、案例匹配已具备；未配置模型时保持确定性匹配。 |
 | Evidence Grounding | 证据绑定与校验 | 少量 | Evidence Engine + Rerank + Citation Mapping | **部分完成**：证据 ID、来源 URL、结论—证据映射、chunk 级引用、确定性 rerank、缺口审核已具备。 |
 | 商务判断 | 结构化综合判断 | 是 | LLM Synthesis + 确定性评分 | **部分完成**：已支持 Schema 约束 LLM 综合判断与确定性评分；未配置模型时规则模板兜底。 |
 | Reviewer | 独立反审 | 是 | Critic LLM + Rules + Conditional Routing | **部分完成**：规则审核、可选 Critic LLM、条件路由、一次补检索完成。 |
@@ -59,7 +59,8 @@ flowchart LR
     Plan --> Search[定向混合词法检索]
     Search --> History[分离历史内部经验]
     History --> Match[证据驱动匹配与排序]
-    Match --> Ground[结论—证据映射]
+    Match --> CandidateReason[受约束候选复核]
+    CandidateReason --> Ground[结论—证据映射]
     Ground --> Score[商务评分与判断]
     Score --> Review[规则 Reviewer]
     Review -->|证据不足，最多一次| Search
@@ -110,6 +111,8 @@ flowchart LR
     Capability --> Inference
     Case --> Inference
     History --> Inference
+    Inference --> CandidateReason[受约束 LLM 候选复核]
+    CandidateReason --> Score
     Inference --> Score[确定性评分]
     Score --> Review[证据覆盖审核]
     Review --> Retry{证据不足且未达重试上限?}
@@ -321,3 +324,9 @@ flowchart LR
 - 为避免升级降低既有候选匹配质量，对外 relevance 保留原 SQL 基线与融合分中的较高值；数据库排序仍由完整词法信号决定。
 - 为 chunk 正文新增全文与 trigram GIN 索引；无词边界语言可由 trigram 提供稳定的补充召回信号。
 - 现有确定性 rerank 继续作为第二层排序；向量、专用 BM25 与 Web 检索仍是后续可插拔增强。
+
+### 2026-08-27 — 受约束 LLM 候选复核
+
+- 在确定性组织、处室和能力匹配后，候选复核模型只能选择已有候选 ID，并以本地白名单过滤未知 ID。
+- 有效模型选择可收窄或重排候选；空选择、未配置模型或校验失败均保留确定性结果。
+- API 返回 `candidate_reasoning`，明确区分 `LLM_CONSTRAINED` 与 `RULE_FALLBACK`，并保留每项候选原有证据映射。

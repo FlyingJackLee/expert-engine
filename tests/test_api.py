@@ -10,6 +10,7 @@ def test_analysis_returns_evidence_grounded_result():
     assert result["expert"]["id"] == "housing_digitalization"
     assert result["needs"][0]["evidence_ids"]
     assert result["departments"][0]["status"] == "CONFIRMED"
+    assert result["candidate_reasoning"]["mode"] == "RULE_FALLBACK"
     assert all(item["status"] == "GROUNDED" for item in result["grounding"])
     assert result["grounding"][0]["citations"][0]["source_id"]
 

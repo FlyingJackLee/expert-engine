@@ -1,6 +1,7 @@
 """Housing-digitalization expert implementation, isolated from graph orchestration."""
 from app.experts.prompts.housing import (EVENT_ANALYZER_V1,
                                          EVIDENCE_CRITIC_V1,
+                                         CANDIDATE_REASONING_V1,
                                          KNOWLEDGE_EXTRACTION_V1,
                                          NEED_REASONING_V1,
                                          OPPORTUNITY_SYNTHESIS_V1,
@@ -14,6 +15,7 @@ runtime = ExpertRuntime(
     opportunity_synthesis_prompt=OPPORTUNITY_SYNTHESIS_V1,
     evidence_critic_prompt=EVIDENCE_CRITIC_V1,
     need_reasoning_prompt=NEED_REASONING_V1,
+    candidate_reasoning_prompt=CANDIDATE_REASONING_V1,
     knowledge_extraction_prompt=KNOWLEDGE_EXTRACTION_V1,
     topic_keywords={
         "城市生命线": ("生命线", "燃气", "供水", "排水", "桥梁", "监测预警"),

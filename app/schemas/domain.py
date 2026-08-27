@@ -152,6 +152,21 @@ class CapabilityMatch(BaseModel):
     evidence_ids: list[str] = Field(default_factory=list)
 
 
+class CandidateSelection(BaseModel):
+    """LLM-selected IDs constrained to precomputed, evidence-backed candidates."""
+
+    organization_ids: list[str] = Field(default_factory=list, max_length=5)
+    department_ids: list[str] = Field(default_factory=list, max_length=10)
+    capability_ids: list[str] = Field(default_factory=list, max_length=10)
+    rationale: str = Field(min_length=2, max_length=1_000)
+
+
+class CandidateReasoning(CandidateSelection):
+    """Public trace of how candidate selection was produced or safely skipped."""
+
+    mode: str
+
+
 class Opportunity(BaseModel):
     """Structured commercial assessment assembled from grounded matches."""
     summary: str
@@ -315,6 +330,7 @@ class ExpertResult(BaseModel):
     organizations: list[OrganizationMatch]
     departments: list[DepartmentMatch]
     capabilities: list[CapabilityMatch]
+    candidate_reasoning: CandidateReasoning
     evidence: list[Evidence]
     historical_knowledge: list[Evidence] = Field(default_factory=list)
     grounding: list[GroundingItem]

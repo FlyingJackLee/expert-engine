@@ -14,7 +14,7 @@ from app.matching import evidence_score
 from app.config import MAX_RESEARCH_RETRIES
 from app.llm import gateway
 from app.scoring.engine import calculate_score
-from app.schemas.domain import (EventAnalysis, NeedInference, Opportunity,
+from app.schemas.domain import (CandidateSelection, EventAnalysis, NeedInference, Opportunity,
                                 ResearchPlan, ReviewResult)
 
 
@@ -215,6 +215,46 @@ def match_capabilities(state: dict) -> dict:
     return {"capabilities": sorted(matches, key=lambda item: (-item["score"], item["capability_id"]))}
 
 
+def reason_about_candidates(state: dict) -> dict:
+    """Optionally narrow evidence-backed candidates without allowing new entities."""
+    runtime = load_runtime(state["expert_profile"])
+    groups = {
+        "organization_ids": ("organizations", "organization_id"),
+        "department_ids": ("departments", "department_id"),
+        "capability_ids": ("capabilities", "capability_id"),
+    }
+    context = {
+        "event_analysis": state["event_analysis"],
+        "candidates": {
+            field: [
+                {identifier: item.get(identifier), "name": item.get("name"), "score": item.get("score"), "evidence_ids": item.get("evidence_ids", [])}
+                for item in state.get(state_key, [])
+            ]
+            for field, (state_key, identifier) in groups.items()
+        },
+    }
+    try:
+        selection = gateway.structured_generate("candidate_reasoning", runtime.candidate_reasoning_prompt, json.dumps(context, ensure_ascii=False), CandidateSelection)
+    except ValidationError:
+        logger.warning("candidate_reasoning returned JSON that failed local schema validation; using rule fallback")
+        selection = None
+    if not selection:
+        return {"candidate_reasoning": {"organization_ids": [], "department_ids": [], "capability_ids": [], "rationale": "未配置候选复核模型，保留确定性证据排序。", "mode": "RULE_FALLBACK"}}
+    output = {"candidate_reasoning": {"mode": "LLM_CONSTRAINED", "rationale": selection.rationale}}
+    for field, (state_key, identifier) in groups.items():
+        candidates = state.get(state_key, [])
+        available = {str(item[identifier]) for item in candidates if item.get(identifier) is not None}
+        selected = [item_id for item_id in getattr(selection, field) if item_id in available]
+        output["candidate_reasoning"][field] = selected
+        if selected:
+            positions = {item_id: index for index, item_id in enumerate(selected)}
+            output[state_key] = sorted(
+                [item for item in candidates if str(item.get(identifier)) in positions],
+                key=lambda item: positions[str(item[identifier])],
+            )
+    return output
+
+
 def ground_evidence(state: dict) -> dict:
     """Create an explicit claim-to-evidence map without inventing claim support."""
     evidence_by_id = {item["evidence_id"]: item for item in state["evidence"]}
@@ -285,5 +325,5 @@ def review(state: dict) -> dict:
 def finalize(state: dict) -> dict:
     """Assemble the public expert response from the completed graph state."""
     profile = state["expert_profile"]
-    result = {"run_id": state["run_id"], "expert": {"id": profile["id"], "version": profile["version"]}, "event": state["raw_event"], "opportunity": state["opportunity"], "score": state["score"], "needs": state["needs"], "organizations": state["organizations"], "departments": state["departments"], "capabilities": state["capabilities"], "evidence": state["evidence"], "historical_knowledge": state.get("historical_knowledge", []), "grounding": state["grounding"], "review": state["review_result"]}
+    result = {"run_id": state["run_id"], "expert": {"id": profile["id"], "version": profile["version"]}, "event": state["raw_event"], "opportunity": state["opportunity"], "score": state["score"], "needs": state["needs"], "organizations": state["organizations"], "departments": state["departments"], "capabilities": state["capabilities"], "candidate_reasoning": state["candidate_reasoning"], "evidence": state["evidence"], "historical_knowledge": state.get("historical_knowledge", []), "grounding": state["grounding"], "review": state["review_result"]}
     return {"status": "COMPLETED", "final_result": result}

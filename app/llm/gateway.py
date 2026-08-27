@@ -14,7 +14,8 @@ from pydantic import BaseModel
 
 from app.config import (LLM_API_KEY, LLM_BASE_URL, LLM_ENABLED, LLM_EVENT_MODEL,
                         LLM_NEED_MODEL, LLM_RESEARCH_MODEL, LLM_REVIEW_MODEL,
-                        LLM_SYNTHESIS_MODEL, LLM_KNOWLEDGE_MODEL)
+                        LLM_SYNTHESIS_MODEL, LLM_KNOWLEDGE_MODEL,
+                        LLM_CANDIDATE_MODEL)
 
 SchemaT = TypeVar("SchemaT", bound=BaseModel)
 
@@ -34,6 +35,7 @@ MODEL_PROFILES = {
     "opportunity_synthesis": ModelProfile("opportunity_synthesis", LLM_SYNTHESIS_MODEL),
     "evidence_critic": ModelProfile("evidence_critic", LLM_REVIEW_MODEL),
     "need_reasoning": ModelProfile("need_reasoning", LLM_NEED_MODEL),
+    "candidate_reasoning": ModelProfile("candidate_reasoning", LLM_CANDIDATE_MODEL),
     "knowledge_extraction": ModelProfile("knowledge_extraction", LLM_KNOWLEDGE_MODEL),
 }
 
