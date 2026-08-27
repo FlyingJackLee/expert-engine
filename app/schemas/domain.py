@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
+from datetime import date
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -84,7 +85,7 @@ class KnowledgeDocumentInput(BaseModel):
     source_url: str | None = None
     organization: str | None = None
     reliability: float = Field(ge=0, le=1)
-    effective_date: str | None = None
+    effective_date: date | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 

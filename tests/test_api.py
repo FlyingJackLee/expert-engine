@@ -21,6 +21,12 @@ def test_analysis_accepts_a_city_for_local_evidence_filtering():
     assert response.json()["event"]["city"] == "重庆"
 
 
+def test_knowledge_document_rejects_invalid_effective_date():
+    """Invalid dates fail at the API boundary instead of becoming database 500s."""
+    response = TestClient(app).post("/api/v1/knowledge/documents", json={"document_id": "doc-invalid-date", "source_type": "POLICY", "title": "有效标题", "chunks": ["有效正文内容"], "reliability": 0.8, "effective_date": "string"})
+    assert response.status_code == 422
+
+
 def test_analysis_result_can_be_loaded_by_run_id():
     client = TestClient(app)
     created = client.post("/api/v1/expert/analyze", json={"event": {"title": "城市生命线建设实施方案", "content": "某市发布城市生命线安全工程建设实施方案，启动燃气、供水和桥梁监测预警平台建设。"}})
