@@ -78,6 +78,7 @@ class PostgresKnowledgeRepository:
                     FROM knowledge_chunks c
                     JOIN knowledge_documents d ON d.document_id = c.document_id
                     WHERE (%s::text[] IS NULL OR d.source_type = ANY(%s::text[]))
+                      AND (d.source_type <> 'INTERNAL' OR COALESCE(d.metadata ->> 'knowledge_status', 'PUBLISHED') = 'PUBLISHED')
                       AND (%s::text IS NULL OR d.metadata ->> 'city' = %s)
                       AND (%s::text[] IS NULL OR d.metadata -> 'topics' ?| %s::text[])
                     ORDER BY matched_terms DESC, d.reliability DESC, d.effective_date DESC NULLS LAST, d.document_id

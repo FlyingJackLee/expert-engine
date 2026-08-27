@@ -59,6 +59,8 @@ KNOWLEDGE_BACKEND=postgres uv run uvicorn app.main:app --reload
 
 仅审核通过的候选可调用 `POST /api/v1/expert/knowledge-candidates/{candidate_id}/publish` 发布。发布会创建递增版本的 `INTERNAL` 知识文档及其候选来源记录，并在后续 Research 中作为补充历史经验检索；它不能替代政策、职责等原始证据。
 
+如需停止某个版本参与后续推理，可调用 `POST /api/v1/expert/knowledge-publications/{publication_id}/retire`，并提交专家角色代号与原因。退役不会物理删除知识或审计记录，只会将该 `INTERNAL` 文档排除出检索。
+
 此时相同的分析 API 将从 PostgreSQL（宿主机端口 `5433`）中读取证据。文档可通过 `POST /api/v1/knowledge/documents` 写入；原始文件对象存储、嵌入生成与 OpenSearch BM25 将在后续检索增强迭代接入。
 
 采集目录中的城市 JSONL 数据可在不写数据库的情况下先做预检；正式导入默认只接受 `VERIFIED` 记录：

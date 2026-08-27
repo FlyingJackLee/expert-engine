@@ -101,3 +101,18 @@ def test_only_an_approved_candidate_can_be_published_as_expert_knowledge():
     assert published.json()["status"] == "PUBLISHED"
     assert published.json()["version"] >= 1
     assert client.get(f"/api/v1/expert/knowledge-candidates/{candidate['candidate_id']}").json()["status"] == "PUBLISHED"
+
+
+def test_published_knowledge_can_be_retired_without_deleting_its_history():
+    """Retirement prevents a second governance action while retaining the publication ID."""
+    client = TestClient(app)
+    created = client.post("/api/v1/expert/analyze", json={"event": {"title": "城市生命线建设实施方案", "content": "某市发布城市生命线安全工程建设实施方案，启动燃气、供水和桥梁监测预警平台建设。"}})
+    run_id = created.json()["run_id"]
+    client.post(f"/api/v1/expert/runs/{run_id}/feedback", json={"outcome": "完成需求沟通", "notes": "客户要求先明确协同范围后再安排下一次沟通。", "submitted_by": "sales_owner_01"})
+    candidate = client.post(f"/api/v1/expert/runs/{run_id}/knowledge-candidates").json()
+    client.post(f"/api/v1/expert/knowledge-candidates/{candidate['candidate_id']}/reviews", json={"decision": "APPROVE", "reviewer_id": "domain_expert_01", "notes": "可发布为经过审核的内部经验。"})
+    publication = client.post(f"/api/v1/expert/knowledge-candidates/{candidate['candidate_id']}/publish").json()
+    retired = client.post(f"/api/v1/expert/knowledge-publications/{publication['publication_id']}/retire", json={"reviewer_id": "domain_expert_01", "notes": "后续实践表明该经验需停用并重新验证。"})
+    assert retired.status_code == 201
+    assert retired.json()["status"] == "RETIRED"
+    assert client.post(f"/api/v1/expert/knowledge-publications/{publication['publication_id']}/retire", json={"reviewer_id": "domain_expert_02", "notes": "不能重复退役同一知识版本。"}).status_code == 409

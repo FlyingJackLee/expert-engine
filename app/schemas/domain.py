@@ -276,6 +276,20 @@ class KnowledgePublicationResult(BaseModel):
     status: str
 
 
+class KnowledgeRetirementInput(BaseModel):
+    """Expert-authored reason for retiring a published knowledge version."""
+
+    reviewer_id: str = Field(min_length=2, max_length=100)
+    notes: str = Field(min_length=2, max_length=4_000)
+
+
+class KnowledgeRetirementResult(BaseModel):
+    """Publication state returned after a version is safely retired."""
+
+    publication_id: str
+    status: str
+
+
 class ExpertResult(BaseModel):
     """Full evidence-grounded response returned by an expert analysis run."""
     run_id: str

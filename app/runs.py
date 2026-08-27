@@ -33,6 +33,10 @@ class RunRepository(Protocol):
         """Audit an expert decision and return the resulting candidate status."""
     def publish_candidate(self, candidate_id: str) -> dict | None:
         """Publish an approved candidate and return its versioned knowledge record."""
+    def get_publication(self, publication_id: str) -> dict | None:
+        """Return a versioned formal-knowledge publication by identifier."""
+    def retire_publication(self, publication_id: str, reviewer_id: str, notes: str) -> str | None:
+        """Retire a published knowledge version and retain its audit history."""
 
 
 class InMemoryRunRepository:
@@ -122,6 +126,25 @@ class InMemoryRunRepository:
                 record.setdefault("publications", []).append(publication)
                 break
         return publication
+
+    def get_publication(self, publication_id: str) -> dict | None:
+        """Find a locally published version across isolated test records."""
+        for record in self.records.values():
+            for publication in record.get("publications", []):
+                if publication["publication_id"] == publication_id:
+                    return publication
+        return None
+
+    def retire_publication(self, publication_id: str, reviewer_id: str, notes: str) -> str | None:
+        """Retire one active local version while retaining its audit event."""
+        publication = self.get_publication(publication_id)
+        if publication is None:
+            return None
+        if publication["status"] != "PUBLISHED":
+            return "ALREADY_RETIRED"
+        publication["status"] = "RETIRED"
+        publication.setdefault("revisions", []).append({"revision_id": str(uuid4()), "action": "RETIRED", "reviewer_id": reviewer_id, "notes": notes})
+        return "RETIRED"
 
 
 class PostgresRunRepository:
@@ -253,13 +276,35 @@ class PostgresRunRepository:
                     "organization": None,
                     "reliability": PUBLISHED_KNOWLEDGE_RELIABILITY,
                     "effective_date": None,
-                    "metadata": {"record_type": "expert_knowledge", "candidate_id": candidate_id, "version": version, "source_feedback_ids": candidate["source_feedback_ids"], "supporting_evidence_ids": content.get("supporting_evidence_ids", [])},
+                    "metadata": {"record_type": "expert_knowledge", "knowledge_status": "PUBLISHED", "candidate_id": candidate_id, "version": version, "source_feedback_ids": candidate["source_feedback_ids"], "supporting_evidence_ids": content.get("supporting_evidence_ids", [])},
                 }
                 PostgresKnowledgeRepository.ingest_with_cursor(cursor, document)
                 publication_id = str(uuid4())
                 cursor.execute("INSERT INTO expert_knowledge_publications (publication_id, candidate_id, document_id, expert_id, version, status) VALUES (%s, %s, %s, %s, %s, %s)", (publication_id, candidate_id, document_id, candidate["expert_id"], version, "PUBLISHED"))
                 cursor.execute("UPDATE expert_knowledge_candidates SET status = %s WHERE candidate_id = %s", ("PUBLISHED", candidate_id))
         return {"publication_id": publication_id, "candidate_id": candidate_id, "document_id": document_id, "expert_id": candidate["expert_id"], "version": version, "status": "PUBLISHED"}
+
+    def get_publication(self, publication_id: str) -> dict | None:
+        """Fetch a versioned publication for safe governance operations."""
+        with psycopg.connect(self.dsn, row_factory=dict_row) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT publication_id, candidate_id, document_id, expert_id, version, status FROM expert_knowledge_publications WHERE publication_id = %s", (publication_id,))
+                return cursor.fetchone()
+
+    def retire_publication(self, publication_id: str, reviewer_id: str, notes: str) -> str | None:
+        """Retire an active version and hide its document from internal retrieval."""
+        with psycopg.connect(self.dsn) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT document_id, status FROM expert_knowledge_publications WHERE publication_id = %s FOR UPDATE", (publication_id,))
+                publication = cursor.fetchone()
+                if publication is None:
+                    return None
+                if publication[1] != "PUBLISHED":
+                    return "ALREADY_RETIRED"
+                cursor.execute("UPDATE expert_knowledge_publications SET status = %s WHERE publication_id = %s", ("RETIRED", publication_id))
+                cursor.execute("UPDATE knowledge_documents SET metadata = metadata || jsonb_build_object('knowledge_status', 'RETIRED') WHERE document_id = %s", (publication[0],))
+                cursor.execute("INSERT INTO expert_knowledge_publication_revisions (revision_id, publication_id, action, reviewer_id, notes) VALUES (%s, %s, %s, %s, %s)", (str(uuid4()), publication_id, "RETIRED", reviewer_id, notes))
+        return "RETIRED"
 
 
 _memory_repository = InMemoryRunRepository()

@@ -11,6 +11,7 @@ from app.runs import get_run_repository
 from app.schemas.domain import (AnalysisRequest, ExpertResult, FeedbackInput,
                                 FeedbackResult, CandidateReviewInput, CandidateReviewResult,
                                 KnowledgeCandidateResult, KnowledgePublicationResult,
+                                KnowledgeRetirementInput, KnowledgeRetirementResult,
                                 ManualReviewInput,
                                 ManualReviewResult)
 
@@ -128,3 +129,15 @@ def publish_knowledge_candidate(candidate_id: str) -> dict:
         raise HTTPException(status_code=409, detail="Only approved knowledge candidates can be published")
     logger.info("knowledge_candidate_published candidate_id=%s document_id=%s version=%s", candidate_id, publication["document_id"], publication["version"])
     return publication
+
+
+@router.post("/knowledge-publications/{publication_id}/retire", response_model=KnowledgeRetirementResult, status_code=201)
+def retire_knowledge_publication(publication_id: str, retirement: KnowledgeRetirementInput) -> dict:
+    """Safely retire a published version without deleting its source or audit trail."""
+    status = get_run_repository().retire_publication(publication_id, retirement.reviewer_id, retirement.notes)
+    if status is None:
+        raise HTTPException(status_code=404, detail="Knowledge publication not found")
+    if status == "ALREADY_RETIRED":
+        raise HTTPException(status_code=409, detail="Knowledge publication is not active")
+    logger.info("knowledge_publication_retired publication_id=%s reviewer_id=%s", publication_id, retirement.reviewer_id)
+    return {"publication_id": publication_id, "status": status}
