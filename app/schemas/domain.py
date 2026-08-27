@@ -231,6 +231,24 @@ class FeedbackResult(BaseModel):
     feedback_id: str
 
 
+class KnowledgeCandidateDraft(BaseModel):
+    """Extracted experience content before it is assigned an approval identity."""
+
+    title: str = Field(min_length=3, max_length=300)
+    summary: str = Field(min_length=3, max_length=4_000)
+    lessons: list[str] = Field(min_length=1, max_length=10)
+    supporting_evidence_ids: list[str] = Field(default_factory=list)
+
+
+class KnowledgeCandidateResult(KnowledgeCandidateDraft):
+    """Persisted candidate returned for an expert approval workflow."""
+
+    candidate_id: str
+    run_id: str
+    status: str
+    source_feedback_ids: list[str] = Field(min_length=1)
+
+
 class ExpertResult(BaseModel):
     """Full evidence-grounded response returned by an expert analysis run."""
     run_id: str

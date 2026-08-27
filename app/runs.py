@@ -12,7 +12,7 @@ from app.config import DATABASE_URL, RUN_BACKEND
 
 
 class RunRepository(Protocol):
-    """Storage contract for persisted analysis results and human reviews."""
+    """Storage contract for analysis results, reviews, feedback and candidates."""
     def save(self, run_id: str, expert_id: str, status: str, result: dict) -> None:
         """Persist one completed or pending analysis result."""
     def get(self, run_id: str) -> dict | None:
@@ -21,6 +21,12 @@ class RunRepository(Protocol):
         """Append an audited human decision and return the new run status."""
     def record_feedback(self, run_id: str, outcome: str, notes: str, submitted_by: str) -> str | None:
         """Append a structured real-world outcome note for a saved run."""
+    def candidate_context(self, run_id: str) -> dict | None:
+        """Return the result and feedback snapshot required for candidate extraction."""
+    def save_candidate(self, run_id: str, expert_id: str, content: dict, source_feedback_ids: list[str]) -> str | None:
+        """Persist one candidate in its initial pending-approval state."""
+    def get_candidate(self, candidate_id: str) -> dict | None:
+        """Return a persisted candidate by its stable identifier."""
 
 
 class InMemoryRunRepository:
@@ -32,7 +38,7 @@ class InMemoryRunRepository:
     def save(self, run_id: str, expert_id: str, status: str, result: dict) -> None:
         """Store a result in process memory for one isolated test process."""
         existing = self.records.get(run_id, {})
-        self.records[run_id] = {"expert_id": expert_id, "status": status, "result": result, "reviews": existing.get("reviews", [])}
+        self.records[run_id] = {"expert_id": expert_id, "status": status, "result": result, "reviews": existing.get("reviews", []), "feedback": existing.get("feedback", []), "candidates": existing.get("candidates", [])}
 
     def get(self, run_id: str) -> dict | None:
         """Look up a test result without touching infrastructure."""
@@ -57,6 +63,30 @@ class InMemoryRunRepository:
         feedback_id = str(uuid4())
         record.setdefault("feedback", []).append({"feedback_id": feedback_id, "outcome": outcome, "notes": notes, "submitted_by": submitted_by})
         return feedback_id
+
+    def candidate_context(self, run_id: str) -> dict | None:
+        """Return a local immutable-looking snapshot for candidate extraction tests."""
+        record = self.records.get(run_id)
+        if not record:
+            return None
+        return {"run_id": run_id, "expert_id": record["expert_id"], "result": record["result"], "feedback": list(record.get("feedback", []))}
+
+    def save_candidate(self, run_id: str, expert_id: str, content: dict, source_feedback_ids: list[str]) -> str | None:
+        """Store a pending candidate with its feedback provenance in memory."""
+        record = self.records.get(run_id)
+        if not record:
+            return None
+        candidate_id = str(uuid4())
+        record.setdefault("candidates", []).append({"candidate_id": candidate_id, "run_id": run_id, "expert_id": expert_id, "status": "PENDING_APPROVAL", "content": content, "source_feedback_ids": source_feedback_ids})
+        return candidate_id
+
+    def get_candidate(self, candidate_id: str) -> dict | None:
+        """Find a locally stored candidate across isolated test records."""
+        for record in self.records.values():
+            for candidate in record.get("candidates", []):
+                if candidate["candidate_id"] == candidate_id:
+                    return candidate
+        return None
 
 
 class PostgresRunRepository:
@@ -112,6 +142,39 @@ class PostgresRunRepository:
                     return None
                 cursor.execute("INSERT INTO expert_run_feedback (feedback_id, run_id, outcome, notes, submitted_by) VALUES (%s, %s, %s, %s, %s)", (feedback_id, run_id, outcome, notes, submitted_by))
         return feedback_id
+
+    def candidate_context(self, run_id: str) -> dict | None:
+        """Read one run and all feedback needed to create a traceable candidate."""
+        with psycopg.connect(self.dsn, row_factory=dict_row) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT expert_id, result FROM expert_runs WHERE run_id = %s", (run_id,))
+                run = cursor.fetchone()
+                if run is None:
+                    return None
+                cursor.execute("SELECT feedback_id, outcome, notes, submitted_by FROM expert_run_feedback WHERE run_id = %s ORDER BY created_at, feedback_id", (run_id,))
+                feedback = cursor.fetchall()
+        return {"run_id": run_id, "expert_id": run["expert_id"], "result": run["result"], "feedback": feedback}
+
+    def save_candidate(self, run_id: str, expert_id: str, content: dict, source_feedback_ids: list[str]) -> str | None:
+        """Persist a candidate without publishing it into the retrieval knowledge base."""
+        candidate_id = str(uuid4())
+        with psycopg.connect(self.dsn) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1 FROM expert_runs WHERE run_id = %s", (run_id,))
+                if cursor.fetchone() is None:
+                    return None
+                cursor.execute(
+                    "INSERT INTO expert_knowledge_candidates (candidate_id, run_id, expert_id, status, content, source_feedback_ids) VALUES (%s, %s, %s, %s, %s::jsonb, %s::jsonb)",
+                    (candidate_id, run_id, expert_id, "PENDING_APPROVAL", json.dumps(content), json.dumps(source_feedback_ids)),
+                )
+        return candidate_id
+
+    def get_candidate(self, candidate_id: str) -> dict | None:
+        """Fetch an unpublished candidate for display or later expert approval."""
+        with psycopg.connect(self.dsn, row_factory=dict_row) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT candidate_id, run_id, status, content, source_feedback_ids FROM expert_knowledge_candidates WHERE candidate_id = %s", (candidate_id,))
+                return cursor.fetchone()
 
 
 _memory_repository = InMemoryRunRepository()

@@ -4,9 +4,10 @@ import time
 from fastapi import APIRouter, HTTPException
 
 from app.graph.main import expert_graph
+from app.knowledge.candidates import extract_candidate
 from app.runs import get_run_repository
 from app.schemas.domain import (AnalysisRequest, ExpertResult, FeedbackInput,
-                                FeedbackResult, ManualReviewInput,
+                                FeedbackResult, KnowledgeCandidateResult, ManualReviewInput,
                                 ManualReviewResult)
 
 router = APIRouter(prefix="/api/v1/expert", tags=["expert-runs"])
@@ -66,3 +67,30 @@ def submit_feedback(run_id: str, feedback: FeedbackInput) -> dict:
         raise HTTPException(status_code=404, detail="Run not found")
     logger.info("feedback_recorded run_id=%s submitted_by=%s", run_id, feedback.submitted_by)
     return {"run_id": run_id, "feedback_id": feedback_id}
+
+
+@router.post("/runs/{run_id}/knowledge-candidates", response_model=KnowledgeCandidateResult, status_code=201)
+def create_knowledge_candidate(run_id: str) -> dict:
+    """Extract an unpublished experience candidate from recorded run feedback."""
+    repository = get_run_repository()
+    context = repository.candidate_context(run_id)
+    if context is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+    if not context["feedback"]:
+        raise HTTPException(status_code=409, detail="At least one feedback record is required")
+    draft = extract_candidate(context)
+    feedback_ids = [item["feedback_id"] for item in context["feedback"]]
+    candidate_id = repository.save_candidate(run_id, context["expert_id"], draft.model_dump(), feedback_ids)
+    if candidate_id is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+    logger.info("knowledge_candidate_created candidate_id=%s run_id=%s", candidate_id, run_id)
+    return {"candidate_id": candidate_id, "run_id": run_id, "status": "PENDING_APPROVAL", "source_feedback_ids": feedback_ids, **draft.model_dump()}
+
+
+@router.get("/knowledge-candidates/{candidate_id}", response_model=KnowledgeCandidateResult)
+def get_knowledge_candidate(candidate_id: str) -> dict:
+    """Return an unpublished knowledge candidate without adding it to retrieval."""
+    candidate = get_run_repository().get_candidate(candidate_id)
+    if candidate is None:
+        raise HTTPException(status_code=404, detail="Knowledge candidate not found")
+    return {**candidate["content"], "candidate_id": candidate["candidate_id"], "run_id": candidate["run_id"], "status": candidate["status"], "source_feedback_ids": candidate["source_feedback_ids"]}

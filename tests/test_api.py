@@ -46,3 +46,26 @@ def test_feedback_can_be_recorded_for_an_existing_run():
     response = client.post(f"/api/v1/expert/runs/{created.json()['run_id']}/feedback", json={"outcome": "已完成首次需求沟通", "notes": "客户确认仍需补充实施范围。", "submitted_by": "sales_owner_01"})
     assert response.status_code == 201
     assert response.json()["feedback_id"]
+
+
+def test_feedback_can_be_extracted_to_an_unpublished_knowledge_candidate():
+    """Candidates preserve feedback provenance and are not published automatically."""
+    client = TestClient(app)
+    created = client.post("/api/v1/expert/analyze", json={"event": {"title": "城市生命线建设实施方案", "content": "某市发布城市生命线安全工程建设实施方案，启动燃气、供水和桥梁监测预警平台建设。"}})
+    run_id = created.json()["run_id"]
+    feedback = client.post(f"/api/v1/expert/runs/{run_id}/feedback", json={"outcome": "完成需求沟通", "notes": "客户要求先明确协同范围后再安排下一次沟通。", "submitted_by": "sales_owner_01"})
+    assert feedback.status_code == 201
+    response = client.post(f"/api/v1/expert/runs/{run_id}/knowledge-candidates")
+    assert response.status_code == 201
+    candidate = response.json()
+    assert candidate["status"] == "PENDING_APPROVAL"
+    assert candidate["source_feedback_ids"] == [feedback.json()["feedback_id"]]
+    assert client.get(f"/api/v1/expert/knowledge-candidates/{candidate['candidate_id']}").json()["candidate_id"] == candidate["candidate_id"]
+
+
+def test_knowledge_candidate_requires_recorded_feedback():
+    """Candidate extraction refuses to infer experience from analysis output alone."""
+    client = TestClient(app)
+    created = client.post("/api/v1/expert/analyze", json={"event": {"title": "城市生命线建设实施方案", "content": "某市发布城市生命线安全工程建设实施方案，启动燃气、供水和桥梁监测预警平台建设。"}})
+    response = client.post(f"/api/v1/expert/runs/{created.json()['run_id']}/knowledge-candidates")
+    assert response.status_code == 409

@@ -13,6 +13,7 @@
 - 事件结构化、受控样例知识检索、需求/单位/处室/能力匹配
 - 确定性机会评分和独立的证据覆盖 Reviewer
 - `POST /api/v1/expert/analyze` 与 Run 查询接口
+- 跟进反馈记录，以及从反馈提炼待审核 Knowledge Candidate 的 API
 
 ## 本地启动
 
@@ -51,6 +52,8 @@ KNOWLEDGE_BACKEND=postgres uv run uvicorn app.main:app --reload
 分析结果使用 `RUN_BACKEND=postgres` 持久化；执行迁移后，`GET /api/v1/expert/runs/{run_id}` 可在服务重启后查询结果。测试环境使用内存后端，不依赖 Docker。
 
 人工审核可通过 `POST /api/v1/expert/runs/{run_id}/reviews` 提交 `APPROVE`、`REJECT` 或 `REQUEST_RESEARCH` 决定，以及审核人角色代号和备注；审核记录保存到 PostgreSQL 审计表。
+
+跟进结果可通过 `POST /api/v1/expert/runs/{run_id}/feedback` 记录。存在至少一条反馈后，调用 `POST /api/v1/expert/runs/{run_id}/knowledge-candidates` 可生成 `PENDING_APPROVAL` 候选；通过 `GET /api/v1/expert/knowledge-candidates/{candidate_id}` 查询。候选不会自动发布或参与检索。
 
 此时相同的分析 API 将从 PostgreSQL（宿主机端口 `5433`）中读取证据。文档可通过 `POST /api/v1/knowledge/documents` 写入；原始文件对象存储、嵌入生成与 OpenSearch BM25 将在后续检索增强迭代接入。
 

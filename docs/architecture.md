@@ -32,7 +32,7 @@ flowchart LR
     classDef planned fill:#757575,color:#fff,stroke:#555;
     class Event done;
     class Research,Reason,Ground,Business,Reviewer partial;
-    class Practice,Feedback,Candidate,Approval,Knowledge planned;
+    class Practice,Feedback,Candidate,Approval,Knowledge partial;
 ```
 
 | 步骤 | 目标主要方法 | 是否用大模型 | 目标核心技术 | 当前进度 |
@@ -45,7 +45,7 @@ flowchart LR
 | Reviewer | 独立反审 | 是 | Critic LLM + Rules + Conditional Routing | **部分完成**：规则审核、可选 Critic LLM、条件路由、一次补检索完成。 |
 | 人工实践 | 商务实际执行 | 否 | Dify/Web/CRM | **部分完成**：已有通用人工审核 API 和审计记录；未接 Dify/Web/CRM。 |
 | 反馈 | 结构化结果记录 | 可辅助 | Form + LLM 信息抽取 | **部分完成**：已有通用反馈 API 与审计表；未接表单界面和 LLM 信息抽取。 |
-| Knowledge Candidate | 经验提炼 | 是 | LLM Knowledge Extraction | **未开始**。 |
+| Knowledge Candidate | 经验提炼 | 是 | LLM Knowledge Extraction | **部分完成**：反馈驱动的候选提炼、来源反馈快照、待审核持久化与查询 API 已具备；尚未接入专家审批。 |
 | 专家审核 | 人工审批 | 否为主 | LangGraph Interrupt / HITL | **部分完成**：可提交通过、驳回、补研究决定并审计；未接 LangGraph Interrupt。 |
 | Expert Knowledge | 正式知识发布 | 否 | PostgreSQL + pgvector + 版本治理 | **部分完成**：PostgreSQL 与 JSONL 导入完成，pgvector/版本治理未接入。 |
 | 下一次推理 | 检索历史经验再推理 | 是 | Expert Knowledge Retrieval + LangGraph | **未开始**：当前只检索手工导入资料，尚未利用实践反馈。 |
@@ -67,6 +67,8 @@ flowchart LR
     Human --> Audit[(expert_run_reviews)]
     Store --> Feedback[跟进反馈 API]
     Feedback --> FeedbackStore[(expert_run_feedback)]
+    FeedbackStore --> Candidate[候选提炼 API]
+    Candidate --> CandidateStore[(expert_knowledge_candidates<br/>PENDING_APPROVAL)]
 ```
 
 > 更新约定：每次核心开发完成后，必须同步更新本表的“当前进度”、上方目标流程图的状态颜色、当前实际运行链路及“演进记录”。
@@ -101,6 +103,10 @@ flowchart LR
     Refine --> Retrieve
     Retry -->|否| Result[可追溯研判结果]
     Result --> Runs[(expert_runs<br/>运行结果持久化)]
+
+    Runs --> Feedback[跟进反馈]
+    Feedback --> Candidate[待审核经验候选]
+    Candidate --> CandidateStore[(expert_knowledge_candidates)]
 
     Dataset[城市 JSONL 数据集] --> Check[预检 / 导入器]
     Check --> Knowledge[(PostgreSQL 知识库)]
@@ -235,3 +241,9 @@ flowchart LR
 - 新增反馈 API，用通用 outcome、notes、submitted_by 字段记录实际跟进结果。
 - 反馈写入 `expert_run_feedback`，与运行结果关联但不修改原始研判结论。
 - 后续 Knowledge Candidate 将从经权限控制的反馈记录中提炼候选经验。
+
+### 2026-08-27 — Knowledge Candidate 候选提炼
+
+- 仅对已有实践反馈的 Run 提炼候选；没有反馈时 API 返回冲突，不将分析结果误当作实践经验。
+- 候选保存关联 Run、反馈 ID 快照、支撑证据 ID 与 `PENDING_APPROVAL` 状态，尚不会进入正式知识库或影响下一次检索。
+- 提炼支持专家 Runtime 声明的 Schema 约束 LLM；未配置或输出不合规时，以明确标注“待审核”的确定性摘要兜底。

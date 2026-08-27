@@ -12,5 +12,6 @@ class ExpertRuntime:
     opportunity_synthesis_prompt: str
     evidence_critic_prompt: str
     need_reasoning_prompt: str
+    knowledge_extraction_prompt: str
     topic_keywords: dict[str, tuple[str, ...]]
     default_topic: str
