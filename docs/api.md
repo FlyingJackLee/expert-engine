@@ -188,6 +188,8 @@ flowchart LR
 
 `source_type` 可用：`POLICY`、`INDUSTRY`、`RESPONSIBILITY`、`CASE`、`CAPABILITY`、`INTERNAL`。
 
+业务人员可先填写 CSV，再由管理员运行 `scripts.convert_business_package` 转成上述 JSONL；CSV 转换不会自动把评测样本写入知识库。
+
 ## 6. Dify 接入
 
 Dify Workflow 使用 HTTP Request 节点调用 `/api/v1/expert/analyze`，将用户输入映射到 `event.title/content/city`，将返回 JSON 交给回答节点展示。需要实时状态时，保存返回的 `run_id`，轮询 `/runs/{run_id}/events`。

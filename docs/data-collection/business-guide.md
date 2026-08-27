@@ -131,6 +131,16 @@ flowchart TD
 
 当前系统已经支持 JSONL 导入；如果业务人员使用 Excel 或表格收集，管理员先按现有模板转换，后续会增加 Excel/CSV 直接导入能力。
 
+管理员可使用转换脚本将本指南的业务 CSV 示例包转换为系统 JSONL：
+
+```bash
+uv run python -m scripts.convert_business_package \
+  docs/data-collection/example-package \
+  /tmp/expert-jsonl
+```
+
+转换完成后，将 `/tmp/expert-jsonl` 中的 5 个 JSONL 文件上传到 Gradio；`06_专家评测样本.csv` 不会进入知识库，应单独整理为 Benchmark。
+
 ## 可直接参考的示例包
 
 请先查看 [`example-package/`](example-package/)，其中的 CSV 文件可以直接用 Excel 打开，配套的 `00_提交说明.md` 展示了业务提交时需要说明的内容。示例数据仅用于理解填写方式，正式导入前必须重新核验来源并将状态改为 `VERIFIED`。
