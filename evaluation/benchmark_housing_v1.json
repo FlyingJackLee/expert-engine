@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0",
+  "version": "0.2.0",
   "expert_id": "housing_digitalization",
   "description": "住建数字化专家的初始黄金样本格式；种子样本仅验证契约和回归链路，真实验收数据需经业务标注后替换。",
   "cases": [
@@ -14,6 +14,7 @@
         "organization_top3": ["org_housing"],
         "department_top3": ["dept_urban_construction"],
         "required_evidence_types": ["POLICY", "RESPONSIBILITY", "CASE"],
+        "required_historical_evidence_ids": ["ev_internal_lifeline_followup"],
         "review_decision": "APPROVE",
         "min_score": 75
       }

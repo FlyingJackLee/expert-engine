@@ -48,7 +48,7 @@ flowchart LR
 | Knowledge Candidate | 经验提炼 | 是 | LLM Knowledge Extraction | **部分完成**：反馈驱动的候选提炼、来源反馈快照、待审核持久化与查询 API 已具备；尚未接入专家审批。 |
 | 专家审核 | 人工审批 | 否为主 | LangGraph Interrupt / HITL | **部分完成**：可审核分析 Run 和知识候选，并审计通过/驳回决定；候选审核采用 PostgreSQL checkpoint 的 LangGraph Interrupt。 |
 | Expert Knowledge | 正式知识发布 | 否 | PostgreSQL + pgvector + 版本治理 | **部分完成**：审核通过候选可事务式发布到 PostgreSQL 知识文档，具备递增版本、候选来源追溯、安全退役与恢复；未接 pgvector。 |
-| 下一次推理 | 检索历史经验再推理 | 是 | Expert Knowledge Retrieval + LangGraph | **部分完成**：Research 将已发布 `INTERNAL` 专家知识分离为历史上下文，并显式输入商务综合推理和 API 结果；尚未实现向量检索与经验效果评测。 |
+| 下一次推理 | 检索历史经验再推理 | 是 | Expert Knowledge Retrieval + LangGraph | **部分完成**：Research 将已发布 `INTERNAL` 专家知识分离为历史上下文，并显式输入商务综合推理和 API 结果；已有历史上下文契约评测，尚未实现向量检索与真实数据效果评测。 |
 
 ### 当前实际运行链路
 
@@ -306,3 +306,9 @@ flowchart LR
 - Research 后新增通用 `extract_historical_knowledge` 节点，仅将 `INTERNAL` 证据分离为可追溯历史上下文。
 - 商务综合 LLM 显式接收历史经验片段和证据 ID；Prompt 要求其将经验视为补充参考，不得替代当前原始证据。
 - API 返回 `historical_knowledge`，调用方可区分当前主证据与历史经验，并核验适用性。
+
+### 2026-08-27 — 历史知识闭环评测契约
+
+- Benchmark 新增历史知识 ID、内部类型隔离与覆盖率检查，防止发布知识在检索或重构后静默失效。
+- 评测同时要求当前政策、职责和案例主证据仍存在，避免将经验知识错误升级为主事实来源。
+- 当前仅有种子契约样本；重庆真实数据与人工效果标签到位后，应扩充为发布门槛评测集。
