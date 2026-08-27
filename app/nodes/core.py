@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from app.experts import load_profile, load_runtime, resolve_expert_id
 from app.knowledge.retrieval import retrieve
 from app.knowledge.rerank import rerank_evidence
+from app.knowledge.grounding import validate_citation
 from app.matching import evidence_score
 from app.config import MAX_RESEARCH_RETRIES
 from app.llm import gateway
@@ -269,8 +270,9 @@ def ground_evidence(state: dict) -> dict:
         for item in state.get(state_key, []):
             claim_id = item.get(id_key) or "UNKNOWN"
             evidence_ids = list(dict.fromkeys(item.get("evidence_ids", [])))
-            citations = [{"evidence_id": evidence_id, "source_id": evidence_by_id[evidence_id]["source_id"], "title": evidence_by_id[evidence_id]["title"], "source_url": evidence_by_id[evidence_id].get("source_url"), "chunk_index": evidence_by_id[evidence_id].get("chunk_index")} for evidence_id in evidence_ids if evidence_id in evidence_by_id]
-            grounding.append({"claim_type": claim_type, "claim_id": str(claim_id), "evidence_ids": evidence_ids, "citations": citations, "status": "GROUNDED" if evidence_ids else "UNGROUNDED"})
+            citations = [{"evidence_id": evidence_id, "source_id": evidence_by_id[evidence_id]["source_id"], "title": evidence_by_id[evidence_id]["title"], "source_url": evidence_by_id[evidence_id].get("source_url"), "chunk_index": evidence_by_id[evidence_id].get("chunk_index"), "validation": validate_citation(evidence_by_id[evidence_id])} for evidence_id in evidence_ids if evidence_id in evidence_by_id]
+            grounded = bool(evidence_ids) and all(item["validation"]["complete"] for item in citations)
+            grounding.append({"claim_type": claim_type, "claim_id": str(claim_id), "evidence_ids": evidence_ids, "citations": citations, "status": "GROUNDED" if grounded else "UNGROUNDED"})
     return {"grounding": grounding}
 
 
