@@ -16,6 +16,7 @@ Swagger：`GET /docs`；OpenAPI：`GET /openapi.json`。
 | `GET` | `/api/v1/expert/runs` | 查询最近运行记录和 `run_id` |
 | `GET` | `/api/v1/expert/runs/{run_id}` | 获取完整分析结果 |
 | `GET` | `/api/v1/expert/runs/{run_id}/events` | 查询节点运行事件 |
+| `GET` | `/api/v1/expert/profiles/{expert_id}/capability-report` | 查询 Expert 能力与资料准备度 |
 | `POST` | `/api/v1/expert/runs/{run_id}/reviews` | 提交人工复核 |
 | `POST` | `/api/v1/expert/runs/{run_id}/feedback` | 记录人工实践反馈 |
 | `POST` | `/api/v1/expert/runs/{run_id}/knowledge-candidates` | 从反馈生成知识候选 |
@@ -66,6 +67,14 @@ curl -X POST http://localhost:8000/api/v1/expert/analyze \
 ```
 
 ## 2. 运行状态与事件
+
+## 3. Expert 能力与资料准备度
+
+```bash
+curl http://localhost:8000/api/v1/expert/profiles/housing_digitalization/capability-report
+```
+
+返回 `capability_score`（黄金样本通过率换算）、`knowledge_readiness`（知识域覆盖率）和 `missing_knowledge_domains`（建议补充的资料类型）。两者分开统计，资料数量不会直接冒充 Expert 能力。
 
 查询最近运行：
 

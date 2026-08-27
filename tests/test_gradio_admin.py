@@ -1,7 +1,7 @@
 """Unit contracts for the optional dataset administration console."""
 from pathlib import Path
 
-from scripts.gradio_admin import benchmark_summary, browse_knowledge, export_validation_report, inspect_dataset, recent_runs, runtime_events
+from scripts.gradio_admin import benchmark_summary, browse_knowledge, expert_capability_report, export_validation_report, inspect_dataset, recent_runs, runtime_events
 
 
 def test_inspect_dataset_requires_all_uploads():
@@ -64,3 +64,12 @@ def test_recent_runs_discovers_persisted_ids(monkeypatch):
     """The Admin selector can populate IDs from the configured run repository."""
     monkeypatch.setattr("scripts.gradio_admin.get_run_repository", lambda: type("Repo", (), {"list_runs": lambda self: [{"run_id": "r1"}]})())
     assert recent_runs() == ["r1"]
+
+
+def test_expert_capability_report_separates_score_and_data_gaps(monkeypatch):
+    """Capability score comes from evaluation while missing domains come from knowledge coverage."""
+    monkeypatch.setattr("scripts.gradio_admin.capability_report", lambda *_args: {"total": 4, "passed": 3, "failed": 1, "capability_score": 75.0, "missing_knowledge_domains": ["CASE"]})
+    monkeypatch.setattr("scripts.gradio_admin.PostgresKnowledgeRepository.summary", lambda *_args: [{"source_type": "POLICY"}])
+    report = __import__("json").loads(expert_capability_report("housing_digitalization"))
+    assert report["capability_score"] == 75.0
+    assert "CASE" in report["missing_knowledge_domains"]

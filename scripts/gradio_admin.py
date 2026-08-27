@@ -10,6 +10,7 @@ from pathlib import Path
 
 from app.knowledge.dataset import DatasetValidationError, load_dataset
 from app.knowledge.postgres import PostgresKnowledgeRepository
+from app.evaluation.capability import capability_report
 from app.observability import get_graph_events
 from app.runs import get_run_repository
 from app.experts import list_profiles
@@ -124,6 +125,11 @@ def benchmark_summary() -> str:
     return json.dumps({key: report[key] for key in ("total", "passed", "failed", "historical_knowledge_coverage")}, ensure_ascii=False, indent=2)
 
 
+def expert_capability_report(expert_profile_id: str = "AUTO") -> str:
+    """Report benchmark ability separately from knowledge-domain readiness and gaps."""
+    return json.dumps(capability_report(expert_profile_id), ensure_ascii=False, indent=2)
+
+
 def runtime_events(run_id: str | list[str] | None) -> str:
     """Render safe node events for a run so every Graph entrypoint is observable."""
     if isinstance(run_id, list):
@@ -197,6 +203,10 @@ def build_demo():
         with gr.Tab("Benchmark 评测"):
             benchmark_output = gr.Textbox(label="评测摘要", lines=8)
             gr.Button("运行黄金样本评测").click(benchmark_summary, outputs=benchmark_output)
+        with gr.Tab("Expert 能力与资料"):
+            capability_profile = gr.Dropdown(["AUTO", *sorted(list_profiles())], value="AUTO", label="专家 Profile")
+            capability_output = gr.Textbox(label="能力与资料报告", lines=12)
+            gr.Button("生成能力报告").click(expert_capability_report, capability_profile, capability_output)
         with gr.Tab("运行状态"):
             run_id = gr.Dropdown(recent_runs(), allow_custom_value=True, label="run_id（自动发现，可手工输入）")
             events_output = gr.Textbox(label="节点事件", lines=16)

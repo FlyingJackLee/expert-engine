@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.graph.main import expert_graph
 from app.observability import get_graph_events
+from app.evaluation.capability import capability_report
 from app.graph.candidate_review import (begin_candidate_review,
                                         resume_candidate_review)
 from app.knowledge.candidates import extract_candidate
@@ -49,6 +50,12 @@ def analyze(request: AnalysisRequest) -> dict:
 def list_runs(limit: int = 50) -> dict:
     """List recent run IDs so operators can discover traces automatically."""
     return {"runs": get_run_repository().list_runs(limit)}
+
+
+@router.get("/profiles/{expert_id}/capability-report")
+def get_capability_report(expert_id: str) -> dict:
+    """Return standard Expert ability, knowledge readiness and missing-domain metrics."""
+    return capability_report(expert_id)
 
 
 @router.get("/runs/{run_id}", response_model=ExpertResult)
