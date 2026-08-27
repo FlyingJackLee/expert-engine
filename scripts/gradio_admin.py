@@ -8,45 +8,49 @@ from pathlib import Path
 
 from app.knowledge.dataset import DatasetValidationError, load_dataset
 from app.knowledge.postgres import PostgresKnowledgeRepository
+from app.experts import list_profiles
+from app.schemas.domain import EvidenceType
 
 
-def inspect_dataset(files: list[str] | None) -> str:
+def inspect_dataset(files: list[str] | None, knowledge_domain: str = "ALL", expert_profile_id: str = "AUTO") -> str:
     """Validate uploaded dataset files and return an operator-friendly summary."""
     if not files:
         return "请先上传 source_manifest.jsonl、events.jsonl、organization_cards.jsonl、capability_cards.jsonl、case_cards.jsonl。"
     with tempfile.TemporaryDirectory(prefix="expert-dataset-") as directory:
         _copy_files(files, Path(directory))
         try:
-            result = load_dataset(directory)
+            result = _scoped_import(load_dataset(directory), knowledge_domain, expert_profile_id)
         except DatasetValidationError as exc:
             return f"校验失败：{exc}"
         return f"校验通过：{len(result.documents)} 条 VERIFIED 文档，跳过 {result.skipped_drafts} 条草稿。"
 
 
-def import_dataset(files: list[str] | None) -> str:
+def import_dataset(files: list[str] | None, knowledge_domain: str = "ALL", expert_profile_id: str = "AUTO") -> str:
     """Validate first, then atomically ingest verified documents into PostgreSQL."""
     if not files:
         return "请先上传数据集文件。"
     with tempfile.TemporaryDirectory(prefix="expert-dataset-") as directory:
         _copy_files(files, Path(directory))
         try:
-            result = load_dataset(directory)
+            result = _scoped_import(load_dataset(directory), knowledge_domain, expert_profile_id)
             repository = PostgresKnowledgeRepository()
             for document in result.documents:
-                repository.ingest(document.model_dump())
+                payload = document.model_dump()
+                payload["metadata"]["expert_profile_id"] = expert_profile_id
+                repository.ingest(payload)
         except DatasetValidationError as exc:
             return f"导入中止，校验失败：{exc}"
         return f"导入完成：{len(result.documents)} 条 VERIFIED 文档，跳过 {result.skipped_drafts} 条草稿。"
 
 
-def export_verified_dataset(files: list[str] | None) -> str | None:
+def export_verified_dataset(files: list[str] | None, knowledge_domain: str = "ALL", expert_profile_id: str = "AUTO") -> str | None:
     """Export validated documents as normalized JSONL for downstream review."""
     if not files:
         return None
     with tempfile.TemporaryDirectory(prefix="expert-dataset-") as directory:
         _copy_files(files, Path(directory))
         try:
-            result = load_dataset(directory)
+            result = _scoped_import(load_dataset(directory), knowledge_domain, expert_profile_id)
         except DatasetValidationError as exc:
             return _write_report({"status": "INVALID", "error": str(exc)})
         with tempfile.NamedTemporaryFile(prefix="expert-verified-", suffix=".jsonl", delete=False) as handle:
@@ -55,14 +59,14 @@ def export_verified_dataset(files: list[str] | None) -> str | None:
         return str(output)
 
 
-def export_validation_report(files: list[str] | None) -> str:
+def export_validation_report(files: list[str] | None, knowledge_domain: str = "ALL", expert_profile_id: str = "AUTO") -> str:
     """Return a JSON report that can be copied or saved when validation fails."""
     if not files:
         return json.dumps({"status": "INVALID", "error": "未上传文件"}, ensure_ascii=False)
     with tempfile.TemporaryDirectory(prefix="expert-dataset-") as directory:
         _copy_files(files, Path(directory))
         try:
-            result = load_dataset(directory)
+            result = _scoped_import(load_dataset(directory), knowledge_domain, expert_profile_id)
         except DatasetValidationError as exc:
             return json.dumps({"status": "INVALID", "error": str(exc)}, ensure_ascii=False)
         return json.dumps({"status": "VALID", "verified_documents": len(result.documents), "skipped_drafts": result.skipped_drafts}, ensure_ascii=False)
@@ -74,6 +78,21 @@ def _write_report(report: dict) -> str:
         output = Path(handle.name)
     output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     return str(output)
+
+
+def _scoped_import(result, knowledge_domain: str, expert_profile_id: str):
+    """Validate the selected knowledge domain and expert profile before operations."""
+    if expert_profile_id != "AUTO" and expert_profile_id not in list_profiles():
+        raise DatasetValidationError(f"未知 expert profile: {expert_profile_id}")
+    if knowledge_domain != "ALL":
+        try:
+            expected = EvidenceType(knowledge_domain)
+        except ValueError as exc:
+            raise DatasetValidationError(f"未知 knowledge domain: {knowledge_domain}") from exc
+        mismatched = [document.document_id for document in result.documents if document.source_type != expected]
+        if mismatched:
+            raise DatasetValidationError(f"上传数据包含不属于 {knowledge_domain} 的记录: {', '.join(mismatched[:5])}")
+    return result
 
 
 def _copy_files(files: list[str], directory: Path) -> None:
@@ -92,14 +111,16 @@ def build_demo():
     with gr.Blocks(title="Expert Engine 数据集管理") as demo:
         gr.Markdown("## Expert Engine 数据集管理\n上传 JSONL 后先校验，再导入 VERIFIED 记录。")
         files = gr.File(file_count="multiple", file_types=[".jsonl"], type="filepath", label="JSONL 数据集")
+        domain = gr.Dropdown(["ALL", *[item.value for item in EvidenceType]], value="ALL", label="知识域")
+        profile = gr.Dropdown(["AUTO", *sorted(list_profiles())], value="AUTO", label="适用专家 Profile")
         output = gr.Textbox(label="操作结果", lines=3)
         report = gr.Textbox(label="校验报告", lines=3)
         download = gr.File(label="导出文件")
         with gr.Row():
-            gr.Button("校验", variant="secondary").click(inspect_dataset, files, output)
-            gr.Button("导入 PostgreSQL", variant="primary").click(import_dataset, files, output)
-            gr.Button("导出 VERIFIED JSONL").click(export_verified_dataset, files, download)
-            gr.Button("查看校验报告").click(export_validation_report, files, report)
+            gr.Button("校验", variant="secondary").click(inspect_dataset, [files, domain, profile], output)
+            gr.Button("导入 PostgreSQL", variant="primary").click(import_dataset, [files, domain, profile], output)
+            gr.Button("导出 VERIFIED JSONL").click(export_verified_dataset, [files, domain, profile], download)
+            gr.Button("查看校验报告").click(export_validation_report, [files, domain, profile], report)
     return demo
 
 

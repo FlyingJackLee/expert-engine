@@ -28,7 +28,7 @@ flowchart TD
 
 | 模块 | MVP | 后续增强 | 当前状态 |
 | --- | --- | --- | --- |
-| 数据集管理 | 上传 JSONL、格式校验、草稿/`VERIFIED` 预览、导入 PostgreSQL | 增量导入、重复记录比较、失败行下载 | 已有上传/校验/导入脚本界面 |
+| 数据集管理 | 上传 JSONL、选择知识域与专家 Profile、格式校验、草稿/`VERIFIED` 预览、导入 PostgreSQL | 增量导入、重复记录比较、失败行下载 | 已有上传/校验/导入脚本界面 |
 | 数据集导出 | 导出规范化 `VERIFIED` JSONL、查看/保存校验失败报告 | 按城市、主题、状态和日期筛选导出 | 已接入 Gradio |
 | 数据集版本 | 显示数据集目录和导入摘要 | 版本快照、差异对比、回滚 | 待开发 |
 | 知识库管理 | 按类型、主题、来源检索并查看证据片段 | 文档生命周期操作、来源追溯 | 待开发 |
@@ -53,6 +53,7 @@ flowchart LR
 
 - 所有导入必须复用 `app.knowledge.dataset.load_dataset`，不能绕过 `VERIFIED` 门槛。
 - 导出默认提供 JSONL 和评测报告两类结果，保留 `source_id`、来源 URL 和状态字段。
+- 每次上传必须选择知识域（或明确选择整包）和适用专家 Profile；Profile 记录写入文档 metadata，供后续检索隔离。
 - Admin 页面只调用已有 service/repository，不在 Gradio callback 内复制业务规则。
 - 模型 API Key、数据库密码等敏感配置只显示“已配置/未配置”，不回显原值。
 - 权限先记录为延期项，当前版本默认面向受信任的内部开发环境。
