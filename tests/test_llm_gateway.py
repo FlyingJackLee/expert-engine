@@ -25,6 +25,25 @@ def test_unconfigured_embedding_returns_none_without_network_call(monkeypatch):
     assert gateway.embed_texts(["测试文本"]) is None
 
 
+def test_embedding_gateway_aligns_provider_results_to_input_order(monkeypatch):
+    """Chunk vectors must be restored to input order before database persistence."""
+    gateway_module = importlib.import_module("app.llm.gateway")
+
+    class FakeEmbeddings:
+        def create(self, **kwargs):
+            return type("Response", (), {"data": [type("Item", (), {"index": 1, "embedding": [0.2]})(), type("Item", (), {"index": 0, "embedding": [0.1]})()]})()
+
+    class FakeClient:
+        embeddings = FakeEmbeddings()
+
+    monkeypatch.setattr(gateway_module, "EMBEDDING_ENABLED", True)
+    monkeypatch.setattr(gateway_module, "LLM_API_KEY", "test-key")
+    monkeypatch.setattr(gateway_module, "EMBEDDING_MODEL", "test-embedding")
+    monkeypatch.setitem(gateway_module.MODEL_PROFILES, "embedding", gateway_module.ModelProfile("embedding", "test-embedding"))
+    monkeypatch.setattr(gateway_module, "OpenAI", lambda **kwargs: FakeClient())
+    assert gateway.embed_texts(["first", "second"]) == [[0.1], [0.2]]
+
+
 def test_gateway_accepts_json_wrapped_in_a_markdown_fence():
     content = '```json\n{"event_type":"POLICY","topics":["城市生命线"],"tasks":[],"signals":{"policy_strength":0.8,"project_signal":0.4,"budget_signal":0.1,"procurement_signal":0.0}}\n```'
     result = EventAnalysis.model_validate_json(gateway._strip_markdown_fence(content))

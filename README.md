@@ -71,7 +71,7 @@ KNOWLEDGE_BACKEND=postgres uv run uvicorn app.main:app --reload
 
 PostgreSQL 检索会融合全文排序、`pg_trgm` 相似度和词覆盖，并继续使用城市、主题、证据类型与知识生命周期过滤；运行 `scripts.migrate` 会创建所需索引。
 
-向量检索通过 `EMBEDDING_ENABLED=true`、`EMBEDDING_MODEL=<model-name>` 显式启用。未配置时不会调用 embedding 服务；当前向量列和查询不固定维度，生产启用前仍需为资料导入流程配置 embedding 生成。
+向量检索通过 `EMBEDDING_ENABLED=true`、`EMBEDDING_MODEL=<model-name>` 显式启用。启用后知识文档导入和专家知识发布会生成 chunk embedding；未配置时不会调用 embedding 服务。当前向量列和查询不固定维度，切换模型后应安排旧资料向量重建。
 
 采集目录中的城市 JSONL 数据可在不写数据库的情况下先做预检；正式导入默认只接受 `VERIFIED` 记录：
 

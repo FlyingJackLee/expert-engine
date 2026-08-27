@@ -20,3 +20,8 @@ def test_vector_literal_preserves_provider_dimension_without_hardcoding_it():
     """The pgvector query payload accepts any configured embedding length."""
     assert _vector_literal([0.1, 0.25, -0.5]) == "[0.1,0.25,-0.5]"
     assert _vector_literal([]) is None
+
+
+def test_vector_literal_handles_missing_embedding_without_fabricating_values():
+    """Disabled or unavailable embedding generation remains a NULL vector."""
+    assert _vector_literal(None) is None

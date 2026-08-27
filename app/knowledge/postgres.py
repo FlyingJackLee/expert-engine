@@ -13,6 +13,7 @@ import psycopg
 from psycopg.rows import dict_row
 
 from app.config import DATABASE_URL
+from app.llm import gateway
 
 
 class PostgresKnowledgeRepository:
@@ -35,6 +36,11 @@ class PostgresKnowledgeRepository:
     @staticmethod
     def ingest_with_cursor(cursor: Any, document: dict[str, Any]) -> None:
         """Upsert a document using a caller-owned transaction cursor."""
+        embeddings = document.get("embeddings")
+        if embeddings is None:
+            embeddings = gateway.embed_texts(document["chunks"])
+        if embeddings is not None and len(embeddings) != len(document["chunks"]):
+            raise ValueError("Embedding provider returned a vector count different from document chunks")
         cursor.execute(
             """
             INSERT INTO knowledge_documents
@@ -51,11 +57,11 @@ class PostgresKnowledgeRepository:
         for index, content in enumerate(document["chunks"]):
             cursor.execute(
                 """
-                INSERT INTO knowledge_chunks (chunk_id, document_id, chunk_index, content)
-                VALUES (%s, %s, %s, %s)
-                ON CONFLICT (document_id, chunk_index) DO UPDATE SET content = EXCLUDED.content
+                INSERT INTO knowledge_chunks (chunk_id, document_id, chunk_index, content, embedding)
+                VALUES (%s, %s, %s, %s, %s::vector)
+                ON CONFLICT (document_id, chunk_index) DO UPDATE SET content = EXCLUDED.content, embedding = EXCLUDED.embedding
                 """,
-                (f"{document['document_id']}:chunk:{index}", document["document_id"], index, content),
+                (f"{document['document_id']}:chunk:{index}", document["document_id"], index, content, _vector_literal(embeddings[index]) if embeddings else None),
             )
 
     def search(self, query: str, types: set[str] | None = None, limit: int = 6, *, city: str | None = None, topics: list[str] | None = None, query_embedding: list[list[float]] | None = None) -> list[dict[str, Any]]:
@@ -83,12 +89,13 @@ class PostgresKnowledgeRepository:
                     JOIN knowledge_documents d ON d.document_id = c.document_id
                     WHERE (%s::text[] IS NULL OR d.source_type = ANY(%s::text[]))
                       AND (d.source_type <> 'INTERNAL' OR COALESCE(d.metadata ->> 'knowledge_status', 'PUBLISHED') = 'PUBLISHED')
+                      AND (%s::vector IS NULL OR c.embedding IS NULL OR vector_dims(c.embedding) = vector_dims(%s::vector))
                       AND (%s::text IS NULL OR d.metadata ->> 'city' = %s)
                       AND (%s::text[] IS NULL OR d.metadata -> 'topics' ?| %s::text[])
                     ORDER BY vector_distance ASC NULLS LAST, full_text_rank DESC, trigram_similarity DESC, matched_terms DESC, d.reliability DESC, d.effective_date DESC NULLS LAST, d.document_id
                     LIMIT %s
                     """,
-                    (query_terms, query_terms, full_text_query, query_terms, vector_literal, vector_literal, type_filter, type_filter, city, city, topic_filter, topic_filter, limit),
+                    (query_terms, query_terms, full_text_query, query_terms, vector_literal, vector_literal, vector_literal, vector_literal, type_filter, type_filter, city, city, topic_filter, topic_filter, limit),
                 )
                 rows = cursor.fetchall()
         return [
