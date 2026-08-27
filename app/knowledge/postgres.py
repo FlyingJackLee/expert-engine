@@ -58,12 +58,13 @@ class PostgresKnowledgeRepository:
                 (f"{document['document_id']}:chunk:{index}", document["document_id"], index, content),
             )
 
-    def search(self, query: str, types: set[str] | None = None, limit: int = 6, *, city: str | None = None, topics: list[str] | None = None) -> list[dict[str, Any]]:
+    def search(self, query: str, types: set[str] | None = None, limit: int = 6, *, city: str | None = None, topics: list[str] | None = None, query_embedding: list[list[float]] | None = None) -> list[dict[str, Any]]:
         """Return ranked evidence with metadata filters applied in the database."""
         type_filter = list(types) if types else None
         topic_filter = topics or None
         query_terms = [term for term in query.replace("，", " ").split() if len(term) > 1][:8]
         full_text_query = " ".join(query_terms)
+        vector_literal = _vector_literal(query_embedding[0]) if query_embedding else None
         with psycopg.connect(self.dsn, row_factory=dict_row) as connection:
             with connection.cursor() as cursor:
                 # Full text serves languages with token boundaries; trigram similarity
@@ -76,17 +77,18 @@ class PostgresKnowledgeRepository:
                            CASE WHEN cardinality(%s::text[]) = 0 THEN 0
                                 ELSE cardinality(ARRAY(SELECT term FROM unnest(%s::text[]) AS term WHERE concat_ws(' ', d.title, c.content) ILIKE '%%' || term || '%%')) END AS matched_terms,
                            ts_rank_cd(to_tsvector('simple', concat_ws(' ', d.title, c.content)), websearch_to_tsquery('simple', %s)) AS full_text_rank,
-                           COALESCE((SELECT MAX(similarity(concat_ws(' ', d.title, c.content), term)) FROM unnest(%s::text[]) AS term), 0) AS trigram_similarity
+                           COALESCE((SELECT MAX(similarity(concat_ws(' ', d.title, c.content), term)) FROM unnest(%s::text[]) AS term), 0) AS trigram_similarity,
+                           CASE WHEN %s::vector IS NULL OR c.embedding IS NULL THEN NULL ELSE c.embedding <=> %s::vector END AS vector_distance
                     FROM knowledge_chunks c
                     JOIN knowledge_documents d ON d.document_id = c.document_id
                     WHERE (%s::text[] IS NULL OR d.source_type = ANY(%s::text[]))
                       AND (d.source_type <> 'INTERNAL' OR COALESCE(d.metadata ->> 'knowledge_status', 'PUBLISHED') = 'PUBLISHED')
                       AND (%s::text IS NULL OR d.metadata ->> 'city' = %s)
                       AND (%s::text[] IS NULL OR d.metadata -> 'topics' ?| %s::text[])
-                    ORDER BY full_text_rank DESC, trigram_similarity DESC, matched_terms DESC, d.reliability DESC, d.effective_date DESC NULLS LAST, d.document_id
+                    ORDER BY vector_distance ASC NULLS LAST, full_text_rank DESC, trigram_similarity DESC, matched_terms DESC, d.reliability DESC, d.effective_date DESC NULLS LAST, d.document_id
                     LIMIT %s
                     """,
-                    (query_terms, query_terms, full_text_query, query_terms, type_filter, type_filter, city, city, topic_filter, topic_filter, limit),
+                    (query_terms, query_terms, full_text_query, query_terms, vector_literal, vector_literal, type_filter, type_filter, city, city, topic_filter, topic_filter, limit),
                 )
                 rows = cursor.fetchall()
         return [
@@ -105,3 +107,10 @@ def _lexical_relevance(row: dict[str, Any], term_count: int) -> float:
     fusion = min(1.0, 0.45 * coverage + 0.35 * full_text + 0.2 * trigram)
     legacy_baseline = min(1.0, 0.55 + row["matched_terms"] * 0.1)
     return round(max(fusion, legacy_baseline), 2)
+
+
+def _vector_literal(vector: list[float]) -> str | None:
+    """Serialize a provider vector for pgvector without assuming its dimension."""
+    if not vector:
+        return None
+    return "[" + ",".join(str(float(value)) for value in vector) + "]"

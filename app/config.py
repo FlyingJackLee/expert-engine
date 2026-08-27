@@ -41,3 +41,5 @@ LLM_CANDIDATE_MODEL = os.getenv("LLM_CANDIDATE_MODEL", "")
 LLM_KNOWLEDGE_MODEL = os.getenv("LLM_KNOWLEDGE_MODEL", "")
 # Published expert knowledge remains lower-confidence than primary source material.
 PUBLISHED_KNOWLEDGE_RELIABILITY = float(os.getenv("PUBLISHED_KNOWLEDGE_RELIABILITY", "0.8"))
+EMBEDDING_ENABLED = os.getenv("EMBEDDING_ENABLED", "false").lower() == "true"
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "")

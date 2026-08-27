@@ -18,6 +18,13 @@ def test_unconfigured_gateway_returns_none_without_network_call(monkeypatch):
     assert MODEL_PROFILES["event_analyzer"].temperature == 0.0
 
 
+def test_unconfigured_embedding_returns_none_without_network_call(monkeypatch):
+    """Embedding retrieval remains optional until a model and explicit opt-in exist."""
+    gateway_module = importlib.import_module("app.llm.gateway")
+    monkeypatch.setattr(gateway_module, "EMBEDDING_ENABLED", False)
+    assert gateway.embed_texts(["测试文本"]) is None
+
+
 def test_gateway_accepts_json_wrapped_in_a_markdown_fence():
     content = '```json\n{"event_type":"POLICY","topics":["城市生命线"],"tasks":[],"signals":{"policy_strength":0.8,"project_signal":0.4,"budget_signal":0.1,"procurement_signal":0.0}}\n```'
     result = EventAnalysis.model_validate_json(gateway._strip_markdown_fence(content))

@@ -38,7 +38,7 @@ flowchart LR
 | 步骤 | 目标主要方法 | 是否用大模型 | 目标核心技术 | 当前进度 |
 | --- | --- | --- | --- | --- |
 | 事件 | 事件接入 + 标准化 | 是 | LangGraph Node + LLM Structured Output | **部分完成**：支持结构化输出和规则降级，LLM 默认关闭。 |
-| Research | 多源检索与研究 | 是 | Hybrid RAG + SQL + BM25 + Vector + Web/内部库 | **部分完成**：PostgreSQL 元数据过滤、全文排序、trigram 相似度、词覆盖融合与研究规划已具备；未接向量、专用 BM25、Web。 |
+| Research | 多源检索与研究 | 是 | Hybrid RAG + SQL + BM25 + Vector + Web/内部库 | **部分完成**：PostgreSQL 元数据过滤、全文/trigram/词覆盖融合及可选 pgvector 查询已具备；未接向量生成任务、专用 BM25、Web。 |
 | Expert Reasoning | 专家推理 | 是，核心 | LLM + Expert Profile + Rules + Case Memory | **部分完成**：Profile、Runtime、受约束 LLM 需求推理、候选复核、规则、案例匹配已具备；未配置模型时保持确定性匹配。 |
 | Evidence Grounding | 证据绑定与校验 | 少量 | Evidence Engine + Rerank + Citation Mapping | **部分完成**：证据 ID、来源 URL、结论—证据映射、chunk 级引用、确定性 rerank、缺口审核已具备。 |
 | 商务判断 | 结构化综合判断 | 是 | LLM Synthesis + 确定性评分 | **部分完成**：已支持 Schema 约束 LLM 综合判断与确定性评分；未配置模型时规则模板兜底。 |
@@ -56,8 +56,9 @@ flowchart LR
 flowchart LR
     Input[事件输入] --> Parse[事件解析]
     Parse --> Plan[研究规划]
-    Plan --> Search[定向混合词法检索]
+    Plan --> Search[定向混合检索]
     Search --> History[分离历史内部经验]
+    Search -.配置 embedding 时.-> Vector[pgvector 语义排序]
     History --> Match[证据驱动匹配与排序]
     Match --> CandidateReason[受约束候选复核]
     CandidateReason --> Ground[结论—证据映射]
@@ -99,6 +100,7 @@ flowchart LR
     Plan --> Retrieve[定向混合检索组件]
 
     Retrieve --> Policy[政策 / 行业证据<br/>按城市 + 主题过滤]
+    Vector[可选 pgvector 语义排序] --> Inference
     Retrieve --> Org[组织 / 处室职责<br/>按城市过滤]
     Retrieve --> Capability[能力卡<br/>按主题全库匹配]
     Retrieve --> Case[案例卡<br/>按主题全库匹配]
@@ -330,3 +332,9 @@ flowchart LR
 - 在确定性组织、处室和能力匹配后，候选复核模型只能选择已有候选 ID，并以本地白名单过滤未知 ID。
 - 有效模型选择可收窄或重排候选；空选择、未配置模型或校验失败均保留确定性结果。
 - API 返回 `candidate_reasoning`，明确区分 `LLM_CONSTRAINED` 与 `RULE_FALLBACK`，并保留每项候选原有证据映射。
+
+### 2026-08-27 — 可插拔向量检索基础
+
+- Gateway 新增可选 embedding 边界；未配置模型或未显式启用时，检索完全保持词法路径。
+- PostgreSQL 查询支持 provider 返回的任意维度向量，并在有向量时加入 cosine 距离排序；向量列不再绑定某个模型维度。
+- 当前没有自动 embedding 生成任务和向量索引参数校准，待确定模型与数据规模后再启用生产语义检索。

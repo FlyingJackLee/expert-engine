@@ -1,4 +1,5 @@
 from app.config import KNOWLEDGE_BACKEND
+from app.llm import gateway
 from app.knowledge.seed import SEED_EVIDENCE
 
 
@@ -6,7 +7,7 @@ def retrieve(query: str, types: set[str] | None = None, limit: int = 6, city: st
     """Knowledge retrieval facade. Postgres is opt-in until the service is provisioned."""
     if KNOWLEDGE_BACKEND == "postgres":
         from app.knowledge.postgres import PostgresKnowledgeRepository
-        return PostgresKnowledgeRepository().search(query, types, limit, city=city, topics=topics)
+        return PostgresKnowledgeRepository().search(query, types, limit, city=city, topics=topics, query_embedding=gateway.embed_texts([query]))
     if KNOWLEDGE_BACKEND != "seed":
         raise ValueError(f"Unsupported KNOWLEDGE_BACKEND: {KNOWLEDGE_BACKEND}")
     # This deterministic fallback exists only for the Phase 1 demo. It keeps tests

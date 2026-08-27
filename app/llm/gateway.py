@@ -15,7 +15,8 @@ from pydantic import BaseModel
 from app.config import (LLM_API_KEY, LLM_BASE_URL, LLM_ENABLED, LLM_EVENT_MODEL,
                         LLM_NEED_MODEL, LLM_RESEARCH_MODEL, LLM_REVIEW_MODEL,
                         LLM_SYNTHESIS_MODEL, LLM_KNOWLEDGE_MODEL,
-                        LLM_CANDIDATE_MODEL)
+                        LLM_CANDIDATE_MODEL, EMBEDDING_ENABLED,
+                        EMBEDDING_MODEL)
 
 SchemaT = TypeVar("SchemaT", bound=BaseModel)
 
@@ -37,6 +38,7 @@ MODEL_PROFILES = {
     "need_reasoning": ModelProfile("need_reasoning", LLM_NEED_MODEL),
     "candidate_reasoning": ModelProfile("candidate_reasoning", LLM_CANDIDATE_MODEL),
     "knowledge_extraction": ModelProfile("knowledge_extraction", LLM_KNOWLEDGE_MODEL),
+    "embedding": ModelProfile("embedding", EMBEDDING_MODEL),
 }
 
 
@@ -76,6 +78,14 @@ class LLMGateway:
         if not content:
             raise RuntimeError(f"{profile_name} returned an empty structured response")
         return schema.model_validate_json(self._strip_markdown_fence(content))
+
+    def embed_texts(self, texts: list[str]) -> list[list[float]] | None:
+        """Generate optional embeddings through the same provider boundary as LLM calls."""
+        if not (EMBEDDING_ENABLED and LLM_API_KEY and MODEL_PROFILES["embedding"].model):
+            return None
+        client = OpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
+        response = client.embeddings.create(model=MODEL_PROFILES["embedding"].model, input=texts)
+        return [list(item.embedding) for item in sorted(response.data, key=lambda item: item.index)]
 
     @staticmethod
     def _create_with_structured_output_fallback(client: OpenAI, request: dict, schema: type[SchemaT]):
