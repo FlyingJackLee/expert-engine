@@ -26,7 +26,12 @@ class OpenSearchBM25:
         http_request = request.Request(f"{self.base_url}/{self.index}/_search", data=payload, headers=headers, method="POST")
         with request.urlopen(http_request, timeout=self.timeout) as response:
             body = json.load(response)
-        return [_map_hit(hit) for hit in body.get("hits", {}).get("hits", [])]
+        results = [_map_hit(hit) for hit in body.get("hits", {}).get("hits", [])]
+        peak = max((item["relevance"] for item in results), default=0.0)
+        if peak:
+            for item in results:
+                item["relevance"] = round(item["relevance"] / peak, 4)
+        return results
 
 
 def _map_hit(hit: dict) -> dict:

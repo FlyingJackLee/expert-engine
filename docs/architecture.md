@@ -38,7 +38,7 @@ flowchart LR
 | 步骤 | 目标主要方法 | 是否用大模型 | 目标核心技术 | 当前进度 |
 | --- | --- | --- | --- | --- |
 | 事件 | 事件接入 + 标准化 | 是 | LangGraph Node + LLM Structured Output | **部分完成**：支持结构化输出和规则降级，LLM 默认关闭。 |
-| Research | 多源检索与研究 | 是 | Hybrid RAG + SQL + BM25 + Vector + Web/内部库 | **部分完成**：PostgreSQL 元数据过滤、全文/trigram/词覆盖、embedding 写入/重建、pgvector 查询及可配置词法/向量融合已具备；OpenSearch BM25 适配层已具备，待真实索引联调与融合。 |
+| Research | 多源检索与研究 | 是 | Hybrid RAG + SQL + BM25 + Vector + Web/内部库 | **部分完成**：PostgreSQL 元数据过滤、全文/trigram/词覆盖、embedding 写入/重建、pgvector 查询及可配置词法/向量融合已具备；OpenSearch BM25 已接入 Research，支持去重、过滤与降级；Web 未接入。 |
 | Expert Reasoning | 专家推理 | 是，核心 | LLM + Expert Profile + Rules + Case Memory | **部分完成**：Profile、Runtime、受约束 LLM 需求推理、候选复核、规则、案例匹配已具备；未配置模型时保持确定性匹配。 |
 | Evidence Grounding | 证据绑定与校验 | 少量 | Evidence Engine + Rerank + Citation Mapping | **部分完成**：证据 ID、来源 URL、结论—证据映射、chunk 级引用、确定性 rerank、缺口审核已具备。 |
 | 商务判断 | 结构化综合判断 | 是 | LLM Synthesis + 确定性评分 | **部分完成**：已支持 Schema 约束 LLM 综合判断与确定性评分；未配置模型时规则模板兜底。 |
