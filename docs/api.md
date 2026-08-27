@@ -76,6 +76,44 @@ curl http://localhost:8000/api/v1/expert/profiles/housing_digitalization/capabil
 
 返回 `capability_score`（黄金样本通过率换算）、`knowledge_readiness`（知识域覆盖率）和 `missing_knowledge_domains`（建议补充的资料类型）。两者分开统计，资料数量不会直接冒充 Expert 能力。
 
+### 返回字段说明
+
+| 字段 | 类型 | 含义 |
+| --- | --- | --- |
+| `expert_profile_id` | `string` | 本次报告对应的专家 Profile ID |
+| `total` | `integer` | 参与评测的黄金样本总数 |
+| `passed` | `integer` | 满足该样本全部检查项的案例数 |
+| `failed` | `integer` | 未通过全部检查项的案例数，等于 `total - passed` |
+| `capability_score` | `number/null` | Expert 能力分数，计算为 `passed / total * 100`；没有样本时为 `null` |
+| `knowledge_readiness` | `number` | 知识域准备度，计算为已覆盖标准知识域数 / 标准知识域总数 × 100 |
+| `available_knowledge_domains` | `string[]` | 当前知识库中已发现的知识域，取值包括 `POLICY`、`INDUSTRY`、`RESPONSIBILITY`、`CASE`、`CAPABILITY`、`INTERNAL` |
+| `missing_knowledge_domains` | `string[]` | 当前未发现、建议补充的知识域 |
+| `historical_knowledge_coverage` | `number` | Benchmark 中历史专家知识被正确检索和隔离的比例 |
+| `knowledge_error` | `string` | 知识库不可访问时的错误摘要；正常情况下不返回 |
+
+示例：
+
+```json
+{
+  "expert_profile_id": "housing_digitalization",
+  "total": 4,
+  "passed": 3,
+  "failed": 1,
+  "capability_score": 75.0,
+  "knowledge_readiness": 50.0,
+  "available_knowledge_domains": ["POLICY", "CASE", "CAPABILITY"],
+  "missing_knowledge_domains": ["INDUSTRY", "RESPONSIBILITY", "INTERNAL"],
+  "historical_knowledge_coverage": 1.0
+}
+```
+
+### 使用边界
+
+- `capability_score` 反映当前 Expert 在黄金样本上的分析质量，不代表业务合同或销售成功率。
+- `knowledge_readiness` 只反映知识域是否有可检索资料，不评价资料内容本身的正确性。
+- `missing_knowledge_domains` 是资料补充提示，不能自动决定业务优先级。
+- 需要更细的错误定位时，应继续查看 Benchmark 的单案例 `checks` 和 `actual` 字段。
+
 查询最近运行：
 
 ```bash
