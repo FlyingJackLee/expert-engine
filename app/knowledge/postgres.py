@@ -12,7 +12,7 @@ from typing import Any
 import psycopg
 from psycopg.rows import dict_row
 
-from app.config import DATABASE_URL
+from app.config import DATABASE_URL, RETRIEVAL_LEXICAL_WEIGHT, RETRIEVAL_VECTOR_WEIGHT
 from app.llm import gateway
 
 
@@ -101,7 +101,7 @@ class PostgresKnowledgeRepository:
         return [
             # Imported seed data retains its stable ID for regression compatibility;
             # documents supplied by users expose their immutable chunk ID instead.
-            {"evidence_id": row["evidence_id"], "type": row["type"], "source_id": row["source_id"], "title": row["title"], "content": row["content"], "organization": row["organization"], "source_url": row["source_url"], "relevance": _lexical_relevance(row, len(query_terms)), "reliability": row["reliability"], "effective_date": row["effective_date"].isoformat() if isinstance(row["effective_date"], date) else None, "chunk_index": row["chunk_index"], "metadata": row["metadata"]}
+            {"evidence_id": row["evidence_id"], "type": row["type"], "source_id": row["source_id"], "title": row["title"], "content": row["content"], "organization": row["organization"], "source_url": row["source_url"], "relevance": _hybrid_relevance(_lexical_relevance(row, len(query_terms)), row["vector_distance"]), "reliability": row["reliability"], "effective_date": row["effective_date"].isoformat() if isinstance(row["effective_date"], date) else None, "chunk_index": row["chunk_index"], "metadata": row["metadata"]}
             for row in rows
         ]
 
@@ -147,3 +147,16 @@ def _vector_literal(vector: list[float]) -> str | None:
     if not vector:
         return None
     return "[" + ",".join(str(float(value)) for value in vector) + "]"
+
+
+def _hybrid_relevance(lexical: float, vector_distance: float | None) -> float:
+    """Blend lexical and vector relevance, preserving lexical fallback coverage."""
+    lexical_weight = max(0.0, RETRIEVAL_LEXICAL_WEIGHT)
+    vector_weight = max(0.0, RETRIEVAL_VECTOR_WEIGHT)
+    if vector_distance is None or vector_weight == 0.0:
+        return round(lexical, 2)
+    total = lexical_weight + vector_weight
+    if total == 0.0:
+        return round(lexical, 2)
+    vector_similarity = max(0.0, min(1.0, 1.0 - float(vector_distance)))
+    return round((lexical * lexical_weight + vector_similarity * vector_weight) / total, 2)

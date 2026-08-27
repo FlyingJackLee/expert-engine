@@ -1,5 +1,5 @@
 """Unit contracts for deterministic PostgreSQL lexical-score fusion."""
-from app.knowledge.postgres import _lexical_relevance, _vector_literal
+from app.knowledge.postgres import _hybrid_relevance, _lexical_relevance, _vector_literal
 
 
 def test_lexical_relevance_fuses_coverage_full_text_and_trigram_signals():
@@ -25,3 +25,13 @@ def test_vector_literal_preserves_provider_dimension_without_hardcoding_it():
 def test_vector_literal_handles_missing_embedding_without_fabricating_values():
     """Disabled or unavailable embedding generation remains a NULL vector."""
     assert _vector_literal(None) is None
+
+
+def test_hybrid_relevance_falls_back_to_lexical_when_vector_is_missing():
+    """A partial embedding rollout must preserve the existing lexical score."""
+    assert _hybrid_relevance(0.75, None) == 0.75
+
+
+def test_hybrid_relevance_bounds_provider_distance():
+    """Unexpected provider distances cannot push relevance outside the valid range."""
+    assert 0.0 <= _hybrid_relevance(0.4, 2.0) <= 1.0

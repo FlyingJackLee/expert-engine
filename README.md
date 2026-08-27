@@ -67,7 +67,7 @@ KNOWLEDGE_BACKEND=postgres uv run uvicorn app.main:app --reload
 
 `uv run python -m evaluation.run_benchmark` 还会报告 `historical_knowledge_coverage`，用于验证已发布经验在后续推理中可检索、可追溯，并始终保持为 `INTERNAL` 补充上下文。
 
-此时相同的分析 API 将从 PostgreSQL（宿主机端口 `5433`）中读取证据。文档可通过 `POST /api/v1/knowledge/documents` 写入；原始文件对象存储、嵌入生成与 OpenSearch BM25 将在后续检索增强迭代接入。
+此时相同的分析 API 将从 PostgreSQL（宿主机端口 `5433`）中读取证据。文档可通过 `POST /api/v1/knowledge/documents` 写入；原始文件对象存储与 OpenSearch BM25 将在后续检索增强迭代接入。当前 PostgreSQL 支持词法/向量融合，权重可通过 `RETRIEVAL_LEXICAL_WEIGHT` 与 `RETRIEVAL_VECTOR_WEIGHT` 调整。
 
 PostgreSQL 检索会融合全文排序、`pg_trgm` 相似度和词覆盖，并继续使用城市、主题、证据类型与知识生命周期过滤；运行 `scripts.migrate` 会创建所需索引。
 

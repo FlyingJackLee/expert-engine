@@ -26,6 +26,9 @@ HITL_CHECKPOINT_BACKEND = os.getenv("HITL_CHECKPOINT_BACKEND", "postgres").lower
 # Generic ranking inputs; these values apply to evidence quality, never to a
 # city, organization, product, or other business fact.
 MATCHING_WEIGHTS = {"relevance": 0.5, "reliability": 0.3, "context": 0.2}
+# Retrieval fusion weights are quality controls, not business facts.
+RETRIEVAL_LEXICAL_WEIGHT = float(os.getenv("RETRIEVAL_LEXICAL_WEIGHT", "0.6"))
+RETRIEVAL_VECTOR_WEIGHT = float(os.getenv("RETRIEVAL_VECTOR_WEIGHT", "0.4"))
 
 # Models remain opt-in: business users can validate deterministic behavior without
 # requiring credentials or accidentally sending data to an external provider.
