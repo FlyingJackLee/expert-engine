@@ -94,6 +94,8 @@ LLM_EVENT_MODEL=<model-name>
 LLM_RESEARCH_MODEL=<model-name>
 ```
 
+所有职责默认共用 `LLM_BASE_URL`、`LLM_API_KEY` 及各自的全局模型变量；如某个环节使用不同服务，可按完整 Profile 名称覆盖：`LLM_EVENT_ANALYZER_BASE_URL`、`LLM_EVENT_ANALYZER_API_KEY`、`LLM_EVENT_ANALYZER_MODEL`。未设置的字段逐项回退到全局默认，不会影响其他环节。
+
 模型只负责事件理解和研究问题规划；单位、处室、案例等关键事实仍只能通过知识库证据得出。未配置任何一个必填变量时，相应节点会自动使用规则兜底。
 
 Gateway 会优先使用 JSON Schema；若当前网关不支持 `response_format`，会自动降级为 JSON Object，最后再以提示词要求纯 JSON，并在本地进行 Pydantic Schema 校验。

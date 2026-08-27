@@ -94,6 +94,7 @@ flowchart LR
     Registry --> Graph[通用 LangGraph 流程]
     Profiles[专家 Profile JSON] --> Registry
     Runtime[专家 Runtime 包<br/>规则 / Prompt / 主题词] --> Registry
+    Endpoints[全局默认 + 职责级 endpoint 覆盖<br/>URL / Key / Model] --> Gateway[统一 LLM Gateway]
 
     Graph --> Event[事件解析]
     Event --> Plan[研究规划]
@@ -338,6 +339,12 @@ flowchart LR
 - Gateway 新增可选 embedding 边界；未配置模型或未显式启用时，检索完全保持词法路径。
 - PostgreSQL 查询支持 provider 返回的任意维度向量，并在有向量时加入 cosine 距离排序；向量列不再绑定某个模型维度。
 - 当前没有自动 embedding 生成任务和向量索引参数校准，待确定模型与数据规模后再启用生产语义检索。
+
+### 2026-08-27 — 多模型 Endpoint 配置
+
+- Gateway 支持全局默认 `LLM_BASE_URL` / `LLM_API_KEY` / 职责模型，以及按职责覆盖的 URL、Key、Model。
+- 覆盖采用完整 Profile 名称，例如 `LLM_EVENT_ANALYZER_BASE_URL`、`LLM_EVENT_ANALYZER_API_KEY`、`LLM_EVENT_ANALYZER_MODEL`；每个字段独立回退，不要求一次性覆盖完整配置。
+- 业务节点只声明职责 Profile，不接触 provider URL 或密钥；embedding 也遵循同一套解析规则。
 
 ### 2026-08-27 — 知识导入 embedding 生成
 

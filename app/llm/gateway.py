@@ -6,6 +6,7 @@ prompt versions, observability and retry policy can evolve independently.
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from typing import TypeVar
 
@@ -27,6 +28,8 @@ class ModelProfile:
 
     name: str
     model: str
+    base_url: str = ""
+    api_key: str = ""
     temperature: float = 0.0
 
 
@@ -42,12 +45,26 @@ MODEL_PROFILES = {
 }
 
 
+def resolve_model_profile(profile_name: str) -> ModelProfile:
+    """Resolve a profile-specific endpoint override with global defaults as fallback."""
+    profile = MODEL_PROFILES[profile_name]
+    prefix = f"LLM_{profile_name.upper()}"
+    return ModelProfile(
+        name=profile.name,
+        model=os.getenv(f"{prefix}_MODEL", profile.model),
+        base_url=os.getenv(f"{prefix}_BASE_URL", profile.base_url or LLM_BASE_URL),
+        api_key=os.getenv(f"{prefix}_API_KEY", profile.api_key or LLM_API_KEY),
+        temperature=profile.temperature,
+    )
+
+
 class LLMGateway:
     """Provider-neutral boundary for schema-constrained model generation."""
 
     def enabled_for(self, profile_name: str) -> bool:
         """Only enable a node when global opt-in and a node-specific model exist."""
-        return LLM_ENABLED and bool(LLM_API_KEY) and bool(MODEL_PROFILES[profile_name].model)
+        profile = resolve_model_profile(profile_name)
+        return LLM_ENABLED and bool(profile.api_key) and bool(profile.model)
 
     def structured_generate(self, profile_name: str, system_prompt: str, user_prompt: str, schema: type[SchemaT]) -> SchemaT | None:
         """Return validated structured output, or ``None`` when this node is disabled.
@@ -58,8 +75,8 @@ class LLMGateway:
         """
         if not self.enabled_for(profile_name):
             return None
-        profile = MODEL_PROFILES[profile_name]
-        client = OpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
+        profile = resolve_model_profile(profile_name)
+        client = OpenAI(api_key=profile.api_key, base_url=profile.base_url)
         # Some compatible gateways advertise neither JSON Schema nor JSON Object.
         # Supplying the contract in-band makes the final prompt-only fallback useful
         # while local Pydantic validation remains the authoritative guardrail.
@@ -81,10 +98,11 @@ class LLMGateway:
 
     def embed_texts(self, texts: list[str]) -> list[list[float]] | None:
         """Generate optional embeddings through the same provider boundary as LLM calls."""
-        if not (EMBEDDING_ENABLED and LLM_API_KEY and MODEL_PROFILES["embedding"].model):
+        profile = resolve_model_profile("embedding")
+        if not (EMBEDDING_ENABLED and profile.api_key and profile.model):
             return None
-        client = OpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
-        response = client.embeddings.create(model=MODEL_PROFILES["embedding"].model, input=texts)
+        client = OpenAI(api_key=profile.api_key, base_url=profile.base_url)
+        response = client.embeddings.create(model=profile.model, input=texts)
         return [list(item.embedding) for item in sorted(response.data, key=lambda item: item.index)]
 
     @staticmethod

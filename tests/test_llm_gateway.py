@@ -1,6 +1,6 @@
 import importlib
 
-from app.llm.gateway import MODEL_PROFILES, gateway
+from app.llm.gateway import MODEL_PROFILES, gateway, resolve_model_profile
 from app.schemas.domain import (EventAnalysis, NeedInference, Opportunity,
                                 ResearchPlan, ReviewResult)
 
@@ -16,6 +16,21 @@ def test_unconfigured_gateway_returns_none_without_network_call(monkeypatch):
     assert gateway.structured_generate("evidence_critic", "system", "user", ReviewResult) is None
     assert gateway.structured_generate("need_reasoning", "system", "user", NeedInference) is None
     assert MODEL_PROFILES["event_analyzer"].temperature == 0.0
+
+
+def test_profile_endpoint_overrides_fall_back_field_by_field(monkeypatch):
+    """One responsibility can use a custom URL/key while inheriting its model default."""
+    gateway_module = importlib.import_module("app.llm.gateway")
+    monkeypatch.setenv("LLM_EVENT_ANALYZER_BASE_URL", "https://event.example/v1")
+    monkeypatch.setenv("LLM_EVENT_ANALYZER_API_KEY", "event-secret")
+    monkeypatch.setenv("LLM_EVENT_ANALYZER_MODEL", "event-model")
+    profile = resolve_model_profile("event_analyzer")
+    assert profile.base_url == "https://event.example/v1"
+    assert profile.api_key == "event-secret"
+    assert profile.model == "event-model"
+    monkeypatch.delenv("LLM_EVENT_ANALYZER_API_KEY")
+    fallback = gateway_module.resolve_model_profile("event_analyzer")
+    assert fallback.base_url == "https://event.example/v1"
 
 
 def test_unconfigured_embedding_returns_none_without_network_call(monkeypatch):

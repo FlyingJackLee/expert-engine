@@ -41,6 +41,7 @@ flowchart TD
 
 1. 检索质量：已接入 PostgreSQL 全文/trigram/词覆盖融合排序、可选 embedding 生成和 pgvector 查询，并保留 SQL 元数据过滤；后续接专用 BM25 与融合校准。
 2. 专家推理：需求推理、商务综合判断与候选复核已接入 Schema 约束 LLM；候选 ID 受本地白名单约束，未配置模型时保持规则/证据校验兜底。
+6. 模型治理：Gateway 已支持全局默认与职责级 endpoint 覆盖；模型密钥不进入专家 Profile 或业务节点。
 3. 证据引用：已升级到文档 chunk、来源链接、定位信息与确定性 rerank；后续补充原文件归档定位。
 4. 独立 Reviewer：已接入可选 Critic LLM，对结论与映射证据进行独立审查；后续补充真实数据下的评测与校准。
 5. 数据联调：仅使用 `VERIFIED` 重庆资料；把人工反馈转为 benchmark 样本和规则调整依据。
