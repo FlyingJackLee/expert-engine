@@ -95,7 +95,7 @@ class PostgresKnowledgeRepository:
                     ORDER BY vector_distance ASC NULLS LAST, full_text_rank DESC, trigram_similarity DESC, matched_terms DESC, d.reliability DESC, d.effective_date DESC NULLS LAST, d.document_id
                     LIMIT %s
                     """,
-                    (query_terms, query_terms, full_text_query, query_terms, vector_literal, vector_literal, vector_literal, vector_literal, type_filter, type_filter, city, city, topic_filter, topic_filter, limit),
+                    (query_terms, query_terms, full_text_query, query_terms, vector_literal, vector_literal, type_filter, type_filter, vector_literal, vector_literal, city, city, topic_filter, topic_filter, limit),
                 )
                 rows = cursor.fetchall()
         return [
