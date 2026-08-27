@@ -61,6 +61,8 @@ KNOWLEDGE_BACKEND=postgres uv run uvicorn app.main:app --reload
 
 如需停止某个版本参与后续推理，可调用 `POST /api/v1/expert/knowledge-publications/{publication_id}/retire`，并提交专家角色代号与原因。退役不会物理删除知识或审计记录，只会将该 `INTERNAL` 文档排除出检索。
 
+经复核后，可调用 `POST /api/v1/expert/knowledge-publications/{publication_id}/restore` 恢复已退役版本。恢复会重新启用内部检索可见性，并以 `RESTORED` 事件记录在同一版本治理审计链中。
+
 此时相同的分析 API 将从 PostgreSQL（宿主机端口 `5433`）中读取证据。文档可通过 `POST /api/v1/knowledge/documents` 写入；原始文件对象存储、嵌入生成与 OpenSearch BM25 将在后续检索增强迭代接入。
 
 采集目录中的城市 JSONL 数据可在不写数据库的情况下先做预检；正式导入默认只接受 `VERIFIED` 记录：

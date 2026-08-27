@@ -290,6 +290,20 @@ class KnowledgeRetirementResult(BaseModel):
     status: str
 
 
+class KnowledgeRestoreInput(BaseModel):
+    """Expert-authored justification for restoring a retired knowledge version."""
+
+    reviewer_id: str = Field(min_length=2, max_length=100)
+    notes: str = Field(min_length=2, max_length=4_000)
+
+
+class KnowledgeRestoreResult(BaseModel):
+    """Publication state returned after a retired version is restored."""
+
+    publication_id: str
+    status: str
+
+
 class ExpertResult(BaseModel):
     """Full evidence-grounded response returned by an expert analysis run."""
     run_id: str

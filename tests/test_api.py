@@ -116,3 +116,7 @@ def test_published_knowledge_can_be_retired_without_deleting_its_history():
     assert retired.status_code == 201
     assert retired.json()["status"] == "RETIRED"
     assert client.post(f"/api/v1/expert/knowledge-publications/{publication['publication_id']}/retire", json={"reviewer_id": "domain_expert_02", "notes": "不能重复退役同一知识版本。"}).status_code == 409
+    restored = client.post(f"/api/v1/expert/knowledge-publications/{publication['publication_id']}/restore", json={"reviewer_id": "domain_expert_01", "notes": "复核后确认该经验仍可作为补充参考。"})
+    assert restored.status_code == 201
+    assert restored.json()["status"] == "PUBLISHED"
+    assert client.post(f"/api/v1/expert/knowledge-publications/{publication['publication_id']}/restore", json={"reviewer_id": "domain_expert_02", "notes": "不能重复恢复已生效的知识版本。"}).status_code == 409

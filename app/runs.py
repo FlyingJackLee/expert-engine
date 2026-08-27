@@ -37,6 +37,8 @@ class RunRepository(Protocol):
         """Return a versioned formal-knowledge publication by identifier."""
     def retire_publication(self, publication_id: str, reviewer_id: str, notes: str) -> str | None:
         """Retire a published knowledge version and retain its audit history."""
+    def restore_publication(self, publication_id: str, reviewer_id: str, notes: str) -> str | None:
+        """Restore a retired knowledge version and retain its audit history."""
 
 
 class InMemoryRunRepository:
@@ -145,6 +147,17 @@ class InMemoryRunRepository:
         publication["status"] = "RETIRED"
         publication.setdefault("revisions", []).append({"revision_id": str(uuid4()), "action": "RETIRED", "reviewer_id": reviewer_id, "notes": notes})
         return "RETIRED"
+
+    def restore_publication(self, publication_id: str, reviewer_id: str, notes: str) -> str | None:
+        """Restore one retired local version and append a distinct audit event."""
+        publication = self.get_publication(publication_id)
+        if publication is None:
+            return None
+        if publication["status"] != "RETIRED":
+            return "NOT_RETIRED"
+        publication["status"] = "PUBLISHED"
+        publication.setdefault("revisions", []).append({"revision_id": str(uuid4()), "action": "RESTORED", "reviewer_id": reviewer_id, "notes": notes})
+        return "PUBLISHED"
 
 
 class PostgresRunRepository:
@@ -305,6 +318,21 @@ class PostgresRunRepository:
                 cursor.execute("UPDATE knowledge_documents SET metadata = metadata || jsonb_build_object('knowledge_status', 'RETIRED') WHERE document_id = %s", (publication[0],))
                 cursor.execute("INSERT INTO expert_knowledge_publication_revisions (revision_id, publication_id, action, reviewer_id, notes) VALUES (%s, %s, %s, %s, %s)", (str(uuid4()), publication_id, "RETIRED", reviewer_id, notes))
         return "RETIRED"
+
+    def restore_publication(self, publication_id: str, reviewer_id: str, notes: str) -> str | None:
+        """Restore a retired version and return it to internal retrieval atomically."""
+        with psycopg.connect(self.dsn) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT document_id, status FROM expert_knowledge_publications WHERE publication_id = %s FOR UPDATE", (publication_id,))
+                publication = cursor.fetchone()
+                if publication is None:
+                    return None
+                if publication[1] != "RETIRED":
+                    return "NOT_RETIRED"
+                cursor.execute("UPDATE expert_knowledge_publications SET status = %s WHERE publication_id = %s", ("PUBLISHED", publication_id))
+                cursor.execute("UPDATE knowledge_documents SET metadata = metadata || jsonb_build_object('knowledge_status', 'PUBLISHED') WHERE document_id = %s", (publication[0],))
+                cursor.execute("INSERT INTO expert_knowledge_publication_revisions (revision_id, publication_id, action, reviewer_id, notes) VALUES (%s, %s, %s, %s, %s)", (str(uuid4()), publication_id, "RESTORED", reviewer_id, notes))
+        return "PUBLISHED"
 
 
 _memory_repository = InMemoryRunRepository()

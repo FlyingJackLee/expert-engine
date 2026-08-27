@@ -12,6 +12,7 @@ from app.schemas.domain import (AnalysisRequest, ExpertResult, FeedbackInput,
                                 FeedbackResult, CandidateReviewInput, CandidateReviewResult,
                                 KnowledgeCandidateResult, KnowledgePublicationResult,
                                 KnowledgeRetirementInput, KnowledgeRetirementResult,
+                                KnowledgeRestoreInput, KnowledgeRestoreResult,
                                 ManualReviewInput,
                                 ManualReviewResult)
 
@@ -140,4 +141,16 @@ def retire_knowledge_publication(publication_id: str, retirement: KnowledgeRetir
     if status == "ALREADY_RETIRED":
         raise HTTPException(status_code=409, detail="Knowledge publication is not active")
     logger.info("knowledge_publication_retired publication_id=%s reviewer_id=%s", publication_id, retirement.reviewer_id)
+    return {"publication_id": publication_id, "status": status}
+
+
+@router.post("/knowledge-publications/{publication_id}/restore", response_model=KnowledgeRestoreResult, status_code=201)
+def restore_knowledge_publication(publication_id: str, restore: KnowledgeRestoreInput) -> dict:
+    """Restore a retired version for internal retrieval after renewed expert review."""
+    status = get_run_repository().restore_publication(publication_id, restore.reviewer_id, restore.notes)
+    if status is None:
+        raise HTTPException(status_code=404, detail="Knowledge publication not found")
+    if status == "NOT_RETIRED":
+        raise HTTPException(status_code=409, detail="Knowledge publication is not retired")
+    logger.info("knowledge_publication_restored publication_id=%s reviewer_id=%s", publication_id, restore.reviewer_id)
     return {"publication_id": publication_id, "status": status}

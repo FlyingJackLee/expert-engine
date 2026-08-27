@@ -47,7 +47,7 @@ flowchart LR
 | 反馈 | 结构化结果记录 | 可辅助 | Form + LLM 信息抽取 | **部分完成**：已有通用反馈 API 与审计表；未接表单界面和 LLM 信息抽取。 |
 | Knowledge Candidate | 经验提炼 | 是 | LLM Knowledge Extraction | **部分完成**：反馈驱动的候选提炼、来源反馈快照、待审核持久化与查询 API 已具备；尚未接入专家审批。 |
 | 专家审核 | 人工审批 | 否为主 | LangGraph Interrupt / HITL | **部分完成**：可审核分析 Run 和知识候选，并审计通过/驳回决定；候选审核采用 PostgreSQL checkpoint 的 LangGraph Interrupt。 |
-| Expert Knowledge | 正式知识发布 | 否 | PostgreSQL + pgvector + 版本治理 | **部分完成**：审核通过候选可事务式发布到 PostgreSQL 知识文档，具备递增版本、候选来源追溯与安全退役；未接 pgvector、版本恢复。 |
+| Expert Knowledge | 正式知识发布 | 否 | PostgreSQL + pgvector + 版本治理 | **部分完成**：审核通过候选可事务式发布到 PostgreSQL 知识文档，具备递增版本、候选来源追溯、安全退役与恢复；未接 pgvector。 |
 | 下一次推理 | 检索历史经验再推理 | 是 | Expert Knowledge Retrieval + LangGraph | **部分完成**：Research 已检索已发布 `INTERNAL` 专家知识作为补充上下文；尚未实现向量检索与经验效果评测。 |
 
 ### 当前实际运行链路
@@ -76,6 +76,8 @@ flowchart LR
     Publish --> Published[(knowledge_documents<br/>INTERNAL expert knowledge)]
     Published --> Retire[版本退役 API]
     Retire --> RevisionAudit[(publication revisions)]
+    RevisionAudit --> Restore[版本恢复 API]
+    Restore --> Published
 ```
 
 > 更新约定：每次核心开发完成后，必须同步更新本表的“当前进度”、上方目标流程图的状态颜色、当前实际运行链路及“演进记录”。
@@ -122,6 +124,8 @@ flowchart LR
     Knowledge --> Retrieve
     Knowledge --> Retire[退役版本]
     Retire --> RevisionAudit[(版本治理审计)]
+    RevisionAudit --> Restore[恢复版本]
+    Restore --> Knowledge
 
     Dataset[城市 JSONL 数据集] --> Check[预检 / 导入器]
     Check --> Knowledge[(PostgreSQL 知识库)]
@@ -287,3 +291,9 @@ flowchart LR
 - 已发布知识可由专家安全退役：不删除候选、文档或发布记录，只将版本状态变为 `RETIRED` 并记录原因。
 - 退役文档在检索层被排除，避免旧经验继续影响下一次推理；数据库中仍保留完整可追溯历史。
 - 每个版本只能退役一次，避免重复治理动作覆盖审计链路。
+
+### 2026-08-27 — Expert Knowledge 版本恢复
+
+- 专家可将 `RETIRED` 版本恢复为 `PUBLISHED`，恢复后该内部知识重新参与后续 Research。
+- 恢复与退役一样只更新状态和检索可见性；`RESTORED` 原因、审核人和时间进入同一版本治理审计链。
+- 仅已退役版本可以恢复，防止重复操作或将未发布版本误带回检索。
