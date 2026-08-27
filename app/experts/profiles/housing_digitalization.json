@@ -1,0 +1,12 @@
+{
+  "id": "housing_digitalization",
+  "name": "住建数字化专家",
+  "version": "1.0.0",
+  "is_default": true,
+  "runtime": "app.experts.housing:runtime",
+  "domains": ["城市更新", "城市生命线", "CIM", "BIM", "数字住建"],
+  "knowledge_scope": ["policy", "organization", "industry", "company", "case"],
+  "rule_set": "housing_rules_v1",
+  "scoring_model": "housing_score_v1",
+  "prompt_set": "housing_prompt_v1"
+}

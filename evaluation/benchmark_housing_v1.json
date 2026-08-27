@@ -1,0 +1,22 @@
+{
+  "version": "0.1.0",
+  "expert_id": "housing_digitalization",
+  "description": "住建数字化专家的初始黄金样本格式；种子样本仅验证契约和回归链路，真实验收数据需经业务标注后替换。",
+  "cases": [
+    {
+      "id": "housing-lifeline-policy-001",
+      "event": {
+        "title": "城市生命线建设实施方案",
+        "content": "某市发布城市生命线安全工程建设实施方案，启动燃气、供水和桥梁监测预警平台建设。"
+      },
+      "expected": {
+        "topics": ["城市生命线"],
+        "organization_top3": ["org_housing"],
+        "department_top3": ["dept_urban_construction"],
+        "required_evidence_types": ["POLICY", "RESPONSIBILITY", "CASE"],
+        "review_decision": "APPROVE",
+        "min_score": 75
+      }
+    }
+  ]
+}

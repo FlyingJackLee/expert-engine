@@ -1,0 +1,1 @@
+{"capability_id":"cap_lifeline_platform","name":"城市生命线数据治理与风险预警","category":"PLATFORM","description":"多源数据接入、数据治理、风险模型和指挥可视化。","applicable_topics":["城市生命线"],"evidence_ids":["src_company_001"],"visibility":"PUBLIC_OR_AUTHORIZED","status":"DRAFT"}
