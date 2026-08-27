@@ -80,6 +80,25 @@ def _write_report(report: dict) -> str:
     return str(output)
 
 
+def knowledge_summary() -> str:
+    """Show logical RAG domains and vector coverage without exposing document bodies."""
+    try:
+        rows = PostgresKnowledgeRepository().summary()
+    except Exception as exc:  # pragma: no cover - infrastructure behavior belongs to deployment checks
+        return f"知识库暂不可用：{exc}"
+    if not rows:
+        return "知识库暂无数据。"
+    return "\n".join(f"{row['source_type']}: 文档 {row['documents']}，片段 {row['chunks']}，已有向量 {row['embedded_chunks']}" for row in rows)
+
+
+def benchmark_summary() -> str:
+    """Run the deterministic golden-sample benchmark and return its compact report."""
+    from evaluation.run_benchmark import run
+
+    report = run()
+    return json.dumps({key: report[key] for key in ("total", "passed", "failed", "historical_knowledge_coverage")}, ensure_ascii=False, indent=2)
+
+
 def _scoped_import(result, knowledge_domain: str, expert_profile_id: str):
     """Validate the selected knowledge domain and expert profile before operations."""
     if expert_profile_id != "AUTO" and expert_profile_id not in list_profiles():
@@ -108,19 +127,27 @@ def build_demo():
         import gradio as gr
     except ImportError as exc:  # pragma: no cover - exercised in deployment environment
         raise RuntimeError("Install the optional admin dependency before starting Gradio: uv sync --extra admin") from exc
-    with gr.Blocks(title="Expert Engine 数据集管理") as demo:
-        gr.Markdown("## Expert Engine 数据集管理\n上传 JSONL 后先校验，再导入 VERIFIED 记录。")
-        files = gr.File(file_count="multiple", file_types=[".jsonl"], type="filepath", label="JSONL 数据集")
-        domain = gr.Dropdown(["ALL", *[item.value for item in EvidenceType]], value="ALL", label="知识域")
-        profile = gr.Dropdown(["AUTO", *sorted(list_profiles())], value="AUTO", label="适用专家 Profile")
-        output = gr.Textbox(label="操作结果", lines=3)
-        report = gr.Textbox(label="校验报告", lines=3)
-        download = gr.File(label="导出文件")
-        with gr.Row():
-            gr.Button("校验", variant="secondary").click(inspect_dataset, [files, domain, profile], output)
-            gr.Button("导入 PostgreSQL", variant="primary").click(import_dataset, [files, domain, profile], output)
-            gr.Button("导出 VERIFIED JSONL").click(export_verified_dataset, [files, domain, profile], download)
-            gr.Button("查看校验报告").click(export_validation_report, [files, domain, profile], report)
+    with gr.Blocks(title="Expert Engine Admin") as demo:
+        gr.Markdown("## Expert Engine Admin\n按数据流管理数据集、RAG 知识库和 Benchmark。")
+        with gr.Tab("数据集导入"):
+            files = gr.File(file_count="multiple", file_types=[".jsonl"], type="filepath", label="JSONL 数据集")
+            domain = gr.Dropdown(["ALL", *[item.value for item in EvidenceType]], value="ALL", label="知识域")
+            profile = gr.Dropdown(["AUTO", *sorted(list_profiles())], value="AUTO", label="适用专家 Profile")
+            output = gr.Textbox(label="操作结果", lines=3)
+            report = gr.Textbox(label="校验报告", lines=3)
+            download = gr.File(label="导出文件")
+            with gr.Row():
+                gr.Button("校验", variant="secondary").click(inspect_dataset, [files, domain, profile], output)
+                gr.Button("导入 PostgreSQL", variant="primary").click(import_dataset, [files, domain, profile], output)
+                gr.Button("导出 VERIFIED JSONL").click(export_verified_dataset, [files, domain, profile], download)
+                gr.Button("查看校验报告").click(export_validation_report, [files, domain, profile], report)
+        with gr.Tab("知识库 / RAG"):
+            knowledge_output = gr.Textbox(label="知识域统计", lines=8)
+            gr.Button("刷新知识库统计").click(knowledge_summary, outputs=knowledge_output)
+            gr.Markdown("统计按 `source_type` 展示逻辑知识域；正文仍通过 Research 检索和 Evidence 引用链路使用。")
+        with gr.Tab("Benchmark 评测"):
+            benchmark_output = gr.Textbox(label="评测摘要", lines=8)
+            gr.Button("运行黄金样本评测").click(benchmark_summary, outputs=benchmark_output)
     return demo
 
 

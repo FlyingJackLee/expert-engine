@@ -1,7 +1,7 @@
 """Unit contracts for the optional dataset administration console."""
 from pathlib import Path
 
-from scripts.gradio_admin import export_validation_report, inspect_dataset
+from scripts.gradio_admin import benchmark_summary, export_validation_report, inspect_dataset
 
 
 def test_inspect_dataset_requires_all_uploads():
@@ -32,3 +32,10 @@ def test_inspect_dataset_rejects_unknown_profile(tmp_path: Path):
         path.write_text("", encoding="utf-8")
         paths.append(str(path))
     assert "未知 expert profile" in inspect_dataset(paths, expert_profile_id="missing")
+
+
+def test_benchmark_summary_exposes_quality_metrics(monkeypatch):
+    """The Admin benchmark tab surfaces aggregate quality metrics only."""
+    monkeypatch.setattr("evaluation.run_benchmark.run", lambda: {"total": 2, "passed": 1, "failed": 1, "historical_knowledge_coverage": 0.5})
+    summary = benchmark_summary()
+    assert '"failed": 1' in summary

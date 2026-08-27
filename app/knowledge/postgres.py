@@ -132,6 +132,20 @@ class PostgresKnowledgeRepository:
             processed += len(batch)
         return {"status": "COMPLETED", "processed": processed}
 
+    def summary(self) -> list[dict[str, Any]]:
+        """Return knowledge-domain and embedding counts for the Admin dashboard."""
+        with psycopg.connect(self.dsn, row_factory=dict_row) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """SELECT d.source_type, count(*) AS documents,
+                              count(c.embedding) AS embedded_chunks,
+                              count(c.chunk_id) AS chunks
+                       FROM knowledge_documents d
+                       LEFT JOIN knowledge_chunks c ON c.document_id = d.document_id
+                       GROUP BY d.source_type ORDER BY d.source_type"""
+                )
+                return cursor.fetchall()
+
 
 def _lexical_relevance(row: dict[str, Any], term_count: int) -> float:
     """Fuse lexical signals without weakening the prior compatible relevance floor."""

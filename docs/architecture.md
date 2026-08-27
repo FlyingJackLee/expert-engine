@@ -300,6 +300,7 @@ flowchart LR
 - 数据导入通过可选 Gradio 管理界面完成，上传后复用 JSONL Dataset Validator，仅将 `VERIFIED` 记录写入知识库。
 - Gradio Admin 后续统一承载数据集上传/导出、知识库浏览、向量重建、黄金样本评测和运行辅助；权限、角色与审计暂列延期项。
 - 数据集操作要求显式选择知识域与专家 Profile；选择结果进入文档 metadata，避免不同专家运行时混用知识。
+- Admin 页面按数据流拆分为数据集导入、知识库/RAG 统计和 Benchmark 评测三个区域；统计和评测只调用既有 Repository/评测器。
 
 ### 2026-08-27 — Expert Knowledge 安全退役
 
