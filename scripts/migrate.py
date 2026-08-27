@@ -3,6 +3,7 @@ from pathlib import Path
 import psycopg
 
 from app.config import DATABASE_URL
+from app.graph.checkpoints import setup_hitl_checkpoint_tables
 
 
 def main() -> None:
@@ -13,6 +14,8 @@ def main() -> None:
             for migration in migrations:
                 cursor.execute(migration.read_text(encoding="utf-8"))
                 print(f"Applied {migration}")
+    setup_hitl_checkpoint_tables()
+    print("Applied LangGraph HITL checkpoint schema")
 
 
 if __name__ == "__main__":

@@ -46,7 +46,7 @@ flowchart LR
 | 人工实践 | 商务实际执行 | 否 | Dify/Web/CRM | **部分完成**：已有通用人工审核 API 和审计记录；未接 Dify/Web/CRM。 |
 | 反馈 | 结构化结果记录 | 可辅助 | Form + LLM 信息抽取 | **部分完成**：已有通用反馈 API 与审计表；未接表单界面和 LLM 信息抽取。 |
 | Knowledge Candidate | 经验提炼 | 是 | LLM Knowledge Extraction | **部分完成**：反馈驱动的候选提炼、来源反馈快照、待审核持久化与查询 API 已具备；尚未接入专家审批。 |
-| 专家审核 | 人工审批 | 否为主 | LangGraph Interrupt / HITL | **部分完成**：可审核分析 Run 和知识候选，并审计通过/驳回决定；候选审核已接 LangGraph Interrupt（当前为进程内 checkpoint）。 |
+| 专家审核 | 人工审批 | 否为主 | LangGraph Interrupt / HITL | **部分完成**：可审核分析 Run 和知识候选，并审计通过/驳回决定；候选审核采用 PostgreSQL checkpoint 的 LangGraph Interrupt。 |
 | Expert Knowledge | 正式知识发布 | 否 | PostgreSQL + pgvector + 版本治理 | **部分完成**：审核通过候选可事务式发布到 PostgreSQL 知识文档，具备按专家递增版本与候选来源追溯；未接 pgvector、回滚版本。 |
 | 下一次推理 | 检索历史经验再推理 | 是 | Expert Knowledge Retrieval + LangGraph | **部分完成**：Research 已检索已发布 `INTERNAL` 专家知识作为补充上下文；尚未实现向量检索与经验效果评测。 |
 
@@ -269,7 +269,8 @@ flowchart LR
 
 - 候选创建完成后启动独立审核 Graph，并在 `interrupt` 节点暂停；审核 API 使用候选 ID 对应的线程以 `Command(resume=...)` 恢复。
 - 恢复后的 Graph 本地校验专家输入，再写入候选状态与审核审计；自动系统不会替代专家作出批准结论。
-- 当前使用 LangGraph 进程内 checkpointer，审核结果已持久化到 PostgreSQL；生产多实例/重启恢复仍需接 PostgreSQL checkpointer。
+- 使用官方 LangGraph PostgreSQL checkpointer，待审 workflow 状态与审核结果均可跨进程恢复。
+- `scripts.migrate` 同时执行官方 checkpoint schema 初始化；测试环境显式使用内存 checkpointer，避免依赖开发者本地数据库。
 
 ### 2026-08-27 — Expert Knowledge 正式发布
 

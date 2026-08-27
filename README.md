@@ -55,7 +55,7 @@ KNOWLEDGE_BACKEND=postgres uv run uvicorn app.main:app --reload
 
 跟进结果可通过 `POST /api/v1/expert/runs/{run_id}/feedback` 记录。存在至少一条反馈后，调用 `POST /api/v1/expert/runs/{run_id}/knowledge-candidates` 可生成 `PENDING_APPROVAL` 候选；通过 `GET /api/v1/expert/knowledge-candidates/{candidate_id}` 查询。候选不会自动发布或参与检索。
 
-专家可通过 `POST /api/v1/expert/knowledge-candidates/{candidate_id}/reviews` 审核候选。候选创建后会由 LangGraph `interrupt` 暂停，审核 API 以 `resume` 恢复对应流程；决定只允许写入一次，并作为审计记录保存。即使通过，也仍需后续发布流程才会进入正式知识库。当前 checkpoint 为进程内实现，生产部署前需替换为持久化 checkpoint。
+专家可通过 `POST /api/v1/expert/knowledge-candidates/{candidate_id}/reviews` 审核候选。候选创建后会由 LangGraph `interrupt` 暂停，审核 API 以 `resume` 恢复对应流程；决定只允许写入一次，并作为审计记录保存。HITL workflow 使用 PostgreSQL checkpoint，`scripts.migrate` 会自动初始化其官方表结构；即使通过，也仍需后续发布流程才会进入正式知识库。
 
 仅审核通过的候选可调用 `POST /api/v1/expert/knowledge-candidates/{candidate_id}/publish` 发布。发布会创建递增版本的 `INTERNAL` 知识文档及其候选来源记录，并在后续 Research 中作为补充历史经验检索；它不能替代政策、职责等原始证据。
 

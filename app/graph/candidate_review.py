@@ -3,10 +3,10 @@ from __future__ import annotations
 
 from typing import Any, TypedDict
 
-from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
 
+from app.graph.checkpoints import build_hitl_checkpointer
 from app.runs import get_run_repository
 from app.schemas.domain import CandidateReviewInput
 
@@ -72,7 +72,7 @@ def build_candidate_review_graph():
     builder.add_edge(START, "wait_for_expert")
     builder.add_edge("wait_for_expert", "persist_expert_decision")
     builder.add_edge("persist_expert_decision", END)
-    return builder.compile(checkpointer=InMemorySaver())
+    return builder.compile(checkpointer=build_hitl_checkpointer())
 
 
 candidate_review_graph = build_candidate_review_graph()

@@ -21,6 +21,8 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 MAX_RESEARCH_RETRIES = int(os.getenv("MAX_RESEARCH_RETRIES", "1"))
 # Analysis results must survive API process restarts in deployed environments.
 RUN_BACKEND = os.getenv("RUN_BACKEND", "postgres").lower()
+# HITL state must survive a web-process restart in deployed environments.
+HITL_CHECKPOINT_BACKEND = os.getenv("HITL_CHECKPOINT_BACKEND", "postgres").lower()
 # Generic ranking inputs; these values apply to evidence quality, never to a
 # city, organization, product, or other business fact.
 MATCHING_WEIGHTS = {"relevance": 0.5, "reliability": 0.3, "context": 0.2}

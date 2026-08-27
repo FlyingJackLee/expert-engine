@@ -8,3 +8,4 @@ os.environ["LLM_ENABLED"] = "false"
 # PostgreSQL data, which may contain incomplete or experimental city records.
 os.environ["KNOWLEDGE_BACKEND"] = "seed"
 os.environ["RUN_BACKEND"] = "memory"
+os.environ["HITL_CHECKPOINT_BACKEND"] = "memory"
