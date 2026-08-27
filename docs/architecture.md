@@ -298,6 +298,7 @@ flowchart LR
 - Research 新增 `INTERNAL` 补充检索，使已发布经验可供后续推理参考，但不会替代政策或处室职责等主证据。
 - 黄金样本默认只进入离线评测器，不注入在线 Prompt；评测器统一输出主题、组织、处室、证据类型、Reviewer、评分和历史知识覆盖指标。
 - 数据导入通过可选 Gradio 管理界面完成，上传后复用 JSONL Dataset Validator，仅将 `VERIFIED` 记录写入知识库。
+- Gradio Admin 后续统一承载数据集上传/导出、知识库浏览、向量重建、黄金样本评测和运行辅助；权限、角色与审计暂列延期项。
 
 ### 2026-08-27 — Expert Knowledge 安全退役
 
