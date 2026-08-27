@@ -10,17 +10,17 @@ from app.knowledge.seed import SEED_EVIDENCE
 logger = logging.getLogger(__name__)
 
 
-def retrieve(query: str, types: set[str] | None = None, limit: int = 6, city: str | None = None, topics: list[str] | None = None) -> list[dict]:
+def retrieve(query: str, types: set[str] | None = None, limit: int = 6, city: str | None = None, topics: list[str] | None = None, expert_profile_id: str | None = None) -> list[dict]:
     """Knowledge retrieval facade. Postgres is opt-in until the service is provisioned."""
     if KNOWLEDGE_BACKEND == "postgres":
         from app.knowledge.postgres import PostgresKnowledgeRepository
-        primary = PostgresKnowledgeRepository().search(query, types, limit, city=city, topics=topics, query_embedding=gateway.embed_texts([query]))
+        primary = PostgresKnowledgeRepository().search(query, types, limit, city=city, topics=topics, query_embedding=gateway.embed_texts([query]), expert_profile_id=expert_profile_id)
     elif KNOWLEDGE_BACKEND == "seed":
         primary = _seed_retrieve(query, types, limit)
     else:
         raise ValueError(f"Unsupported KNOWLEDGE_BACKEND: {KNOWLEDGE_BACKEND}")
 
-    bm25 = _bm25_retrieve(query, types, limit, city=city, topics=topics)
+    bm25 = _bm25_retrieve(query, types, limit, city=city, topics=topics, expert_profile_id=expert_profile_id)
     web = _web_retrieve(query, types, limit, city=city, topics=topics)
     return _merge_evidence(primary, [*bm25, *web], limit)
 
@@ -39,7 +39,7 @@ def _seed_retrieve(query: str, types: set[str] | None, limit: int) -> list[dict]
     return [item for _, item in sorted(ranked, key=lambda pair: pair[0], reverse=True)[:limit]]
 
 
-def _bm25_retrieve(query: str, types: set[str] | None, limit: int, *, city: str | None, topics: list[str] | None) -> list[dict]:
+def _bm25_retrieve(query: str, types: set[str] | None, limit: int, *, city: str | None, topics: list[str] | None, expert_profile_id: str | None) -> list[dict]:
     """Query optional BM25 and apply engine-owned metadata filters after retrieval."""
     if not BM25_ENABLED or not BM25_BASE_URL:
         return []
@@ -56,6 +56,8 @@ def _bm25_retrieve(query: str, types: set[str] | None, limit: int, *, city: str 
         if city and metadata.get("city") != city:
             continue
         if topics and not set(topics).intersection(metadata.get("topics", [])):
+            continue
+        if expert_profile_id and metadata.get("expert_profile_id") not in (None, expert_profile_id):
             continue
         filtered.append(item)
     return filtered

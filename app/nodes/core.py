@@ -98,16 +98,18 @@ def research(state: dict) -> dict:
     query = " ".join([*state["research_plan"]["questions"], *topics, state["raw_event"]["title"]])
     city = state["raw_event"].get("city") or state.get("user_context", {}).get("city")
     evidence = []
+    profile_id = state.get("expert_profile", {}).get("id")
+    retrieval_scope = {"expert_profile_id": profile_id} if profile_id else {}
     # Policy/industry, organization, capability and case evidence serve different
     # inference steps. Keep them separate here so a strong vendor case cannot
     # accidentally substitute for a local authority responsibility record.
-    evidence.extend(retrieve(query, {"POLICY", "INDUSTRY"}, city=city, topics=topics))
-    evidence.extend(retrieve(query, {"RESPONSIBILITY"}, city=city))
-    evidence.extend(retrieve(query, {"CAPABILITY"}, topics=topics))
-    evidence.extend(retrieve(query, {"CASE"}, topics=topics))
+    evidence.extend(retrieve(query, {"POLICY", "INDUSTRY"}, city=city, topics=topics, **retrieval_scope))
+    evidence.extend(retrieve(query, {"RESPONSIBILITY"}, city=city, **retrieval_scope))
+    evidence.extend(retrieve(query, {"CAPABILITY"}, topics=topics, **retrieval_scope))
+    evidence.extend(retrieve(query, {"CASE"}, topics=topics, **retrieval_scope))
     # Published expert lessons are supplementary internal context, never a
     # substitute for policy or responsibility evidence in deterministic matching.
-    evidence.extend(retrieve(query, {"INTERNAL"}))
+    evidence.extend(retrieve(query, {"INTERNAL"}, **retrieval_scope))
     deduplicated = {item["evidence_id"]: item for item in evidence}
     ranked_evidence = rerank_evidence(query, list(deduplicated.values()))
     history = list(state.get("research_history", []))

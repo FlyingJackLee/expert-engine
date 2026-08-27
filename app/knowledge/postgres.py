@@ -64,7 +64,7 @@ class PostgresKnowledgeRepository:
                 (f"{document['document_id']}:chunk:{index}", document["document_id"], index, content, _vector_literal(embeddings[index]) if embeddings else None, gateway.resolve_model_profile("embedding").model if embeddings else None),
             )
 
-    def search(self, query: str, types: set[str] | None = None, limit: int = 6, *, city: str | None = None, topics: list[str] | None = None, query_embedding: list[list[float]] | None = None) -> list[dict[str, Any]]:
+    def search(self, query: str, types: set[str] | None = None, limit: int = 6, *, city: str | None = None, topics: list[str] | None = None, query_embedding: list[list[float]] | None = None, expert_profile_id: str | None = None) -> list[dict[str, Any]]:
         """Return ranked evidence with metadata filters applied in the database."""
         type_filter = list(types) if types else None
         topic_filter = topics or None
@@ -92,10 +92,11 @@ class PostgresKnowledgeRepository:
                       AND (%s::vector IS NULL OR c.embedding IS NULL OR vector_dims(c.embedding) = vector_dims(%s::vector))
                       AND (%s::text IS NULL OR d.metadata ->> 'city' = %s)
                       AND (%s::text[] IS NULL OR d.metadata -> 'topics' ?| %s::text[])
+                      AND (%s::text IS NULL OR d.metadata ->> 'expert_profile_id' IS NULL OR d.metadata ->> 'expert_profile_id' = %s)
                     ORDER BY vector_distance ASC NULLS LAST, full_text_rank DESC, trigram_similarity DESC, matched_terms DESC, d.reliability DESC, d.effective_date DESC NULLS LAST, d.document_id
                     LIMIT %s
                     """,
-                    (query_terms, query_terms, full_text_query, query_terms, vector_literal, vector_literal, type_filter, type_filter, vector_literal, vector_literal, city, city, topic_filter, topic_filter, limit),
+                    (query_terms, query_terms, full_text_query, query_terms, vector_literal, vector_literal, type_filter, type_filter, vector_literal, vector_literal, city, city, topic_filter, topic_filter, expert_profile_id, expert_profile_id, limit),
                 )
                 rows = cursor.fetchall()
         return [
