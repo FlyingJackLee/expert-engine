@@ -19,6 +19,8 @@ class RunRepository(Protocol):
         """Persist one completed or pending analysis result."""
     def get(self, run_id: str) -> dict | None:
         """Return a saved analysis result by its stable run ID."""
+    def list_runs(self, limit: int = 50) -> list[dict]:
+        """List recent run summaries for operational monitoring."""
     def record_review(self, run_id: str, decision: str, reviewer_id: str, notes: str) -> str | None:
         """Append an audited human decision and return the new run status."""
     def record_feedback(self, run_id: str, outcome: str, notes: str, submitted_by: str) -> str | None:
@@ -56,6 +58,10 @@ class InMemoryRunRepository:
         """Look up a test result without touching infrastructure."""
         record = self.records.get(run_id)
         return record["result"] if record else None
+
+    def list_runs(self, limit: int = 50) -> list[dict]:
+        """List recent process-local runs without exposing full result payloads."""
+        return [{"run_id": run_id, "expert_id": record["expert_id"], "status": record["status"]} for run_id, record in list(self.records.items())[-limit:][::-1]]
 
     def record_review(self, run_id: str, decision: str, reviewer_id: str, notes: str) -> str | None:
         """Record a test-only audit item and update the local status."""
@@ -188,6 +194,15 @@ class PostgresRunRepository:
                 cursor.execute("SELECT result FROM expert_runs WHERE run_id = %s", (run_id,))
                 row = cursor.fetchone()
         return row["result"] if row else None
+
+    def list_runs(self, limit: int = 50) -> list[dict]:
+        """List recent persisted run IDs and statuses for Admin discovery."""
+        if limit < 1:
+            raise ValueError("limit must be positive")
+        with psycopg.connect(self.dsn, row_factory=dict_row) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT run_id, expert_id, status, created_at FROM expert_runs ORDER BY created_at DESC LIMIT %s", (limit,))
+                return cursor.fetchall()
 
     def record_review(self, run_id: str, decision: str, reviewer_id: str, notes: str) -> str | None:
         """Transactionally persist an audit item and the resulting run status."""

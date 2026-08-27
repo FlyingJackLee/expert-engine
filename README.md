@@ -80,6 +80,7 @@ PostgreSQL 检索会融合全文排序、`pg_trgm` 相似度和词覆盖，并�
 Admin 后台功能规划见 [`docs/admin-console-plan.md`](docs/admin-console-plan.md)，当前优先开发数据集导出、知识库浏览、向量管理和黄金样本评测；权限与操作审计暂缓。
 
 所有 Graph 入口（API、Benchmark、CLI、Gradio）共享节点事件观测接口：`GET /api/v1/expert/runs/{run_id}/events`。当前事件保存在进程内，适合实时查看；持久化轨迹表列入后续增强。
+运行记录可通过 `GET /api/v1/expert/runs` 自动发现，Gradio“运行状态”页也会加载最近的 run_id。
 
 启动 Gradio Admin 后，在“运行状态”页输入分析返回的 `run_id`，页面会每 2 秒自动刷新节点事件。
 

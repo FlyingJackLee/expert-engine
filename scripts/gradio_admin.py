@@ -11,6 +11,7 @@ from pathlib import Path
 from app.knowledge.dataset import DatasetValidationError, load_dataset
 from app.knowledge.postgres import PostgresKnowledgeRepository
 from app.observability import get_graph_events
+from app.runs import get_run_repository
 from app.experts import list_profiles
 from app.schemas.domain import EvidenceType
 
@@ -131,6 +132,14 @@ def runtime_events(run_id: str) -> str:
     return json.dumps(events, ensure_ascii=False, indent=2) if events else "暂未发现运行事件；请确认 run_id 或等待 Graph 启动。"
 
 
+def recent_runs() -> list[str]:
+    """Return recent persisted run IDs for automatic Admin selection."""
+    try:
+        return [item["run_id"] for item in get_run_repository().list_runs()]
+    except Exception:
+        return []
+
+
 def _scoped_import(result, knowledge_domain: str, expert_profile_id: str):
     """Validate the selected knowledge domain and expert profile before operations."""
     if expert_profile_id != "AUTO" and expert_profile_id not in list_profiles():
@@ -186,9 +195,12 @@ def build_demo():
             benchmark_output = gr.Textbox(label="评测摘要", lines=8)
             gr.Button("运行黄金样本评测").click(benchmark_summary, outputs=benchmark_output)
         with gr.Tab("运行状态"):
-            run_id = gr.Textbox(label="run_id")
+            run_id = gr.Dropdown(recent_runs(), allow_custom_value=True, label="run_id（自动发现，可手工输入）")
             events_output = gr.Textbox(label="节点事件", lines=16)
-            refresh = gr.Button("刷新运行事件")
+            with gr.Row():
+                refresh_runs = gr.Button("刷新运行列表")
+                refresh = gr.Button("刷新运行事件")
+            refresh_runs.click(recent_runs, outputs=run_id)
             refresh.click(runtime_events, run_id, events_output)
             timer = gr.Timer(2.0)
             timer.tick(runtime_events, run_id, events_output)

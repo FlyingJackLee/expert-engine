@@ -45,6 +45,12 @@ def analyze(request: AnalysisRequest) -> dict:
     return state["final_result"]
 
 
+@router.get("/runs")
+def list_runs(limit: int = 50) -> dict:
+    """List recent run IDs so operators can discover traces automatically."""
+    return {"runs": get_run_repository().list_runs(limit)}
+
+
 @router.get("/runs/{run_id}", response_model=ExpertResult)
 def get_run(run_id: str) -> dict:
     """Return a previously persisted analysis result or a 404 response."""
