@@ -124,8 +124,11 @@ def benchmark_summary() -> str:
     return json.dumps({key: report[key] for key in ("total", "passed", "failed", "historical_knowledge_coverage")}, ensure_ascii=False, indent=2)
 
 
-def runtime_events(run_id: str) -> str:
+def runtime_events(run_id: str | list[str] | None) -> str:
     """Render safe node events for a run so every Graph entrypoint is observable."""
+    if isinstance(run_id, list):
+        run_id = run_id[0] if run_id else ""
+    run_id = run_id or ""
     if not run_id.strip():
         return "请输入 run_id。"
     events = get_graph_events(run_id.strip())

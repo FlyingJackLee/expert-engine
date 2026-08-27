@@ -57,6 +57,7 @@ def test_browse_knowledge_returns_safe_metadata(monkeypatch):
 def test_runtime_events_requires_run_id():
     """The live viewer gives operators a clear input requirement."""
     assert "请输入 run_id" in runtime_events(" ")
+    assert "请输入 run_id" in runtime_events([])
 
 
 def test_recent_runs_discovers_persisted_ids(monkeypatch):
