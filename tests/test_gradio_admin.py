@@ -1,7 +1,7 @@
 """Unit contracts for the optional dataset administration console."""
 from pathlib import Path
 
-from scripts.gradio_admin import benchmark_summary, export_validation_report, inspect_dataset
+from scripts.gradio_admin import benchmark_summary, browse_knowledge, export_validation_report, inspect_dataset
 
 
 def test_inspect_dataset_requires_all_uploads():
@@ -39,3 +39,11 @@ def test_benchmark_summary_exposes_quality_metrics(monkeypatch):
     monkeypatch.setattr("evaluation.run_benchmark.run", lambda: {"total": 2, "passed": 1, "failed": 1, "historical_knowledge_coverage": 0.5})
     summary = benchmark_summary()
     assert '"failed": 1' in summary
+
+
+def test_browse_knowledge_returns_safe_metadata(monkeypatch):
+    """The Admin browser exposes metadata and citation fields, not chunk bodies."""
+    monkeypatch.setattr("scripts.gradio_admin.PostgresKnowledgeRepository.browse", lambda *_args: [{"document_id": "d1", "source_type": "POLICY", "title": "政策", "organization": "机构", "source_url": "https://example.test", "metadata": {}, "chunks": 1, "embedded_chunks": 1}])
+    result = browse_knowledge("POLICY")
+    assert '"document_id": "d1"' in result
+    assert "content" not in result

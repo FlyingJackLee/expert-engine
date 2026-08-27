@@ -91,6 +91,20 @@ def knowledge_summary() -> str:
     return "\n".join(f"{row['source_type']}: 文档 {row['documents']}，片段 {row['chunks']}，已有向量 {row['embedded_chunks']}" for row in rows)
 
 
+def browse_knowledge(knowledge_domain: str = "ALL", expert_profile_id: str = "AUTO", topic: str = "") -> str:
+    """Browse filtered knowledge metadata for Admin verification and export preparation."""
+    try:
+        rows = PostgresKnowledgeRepository().browse(
+            None if knowledge_domain == "ALL" else knowledge_domain,
+            None if expert_profile_id == "AUTO" else expert_profile_id,
+            topic.strip() or None,
+        )
+    except Exception as exc:  # pragma: no cover - infrastructure behavior belongs to deployment checks
+        return f"知识库暂不可用：{exc}"
+    safe_rows = [{"document_id": row["document_id"], "source_type": row["source_type"], "title": row["title"], "organization": row["organization"], "source_url": row["source_url"], "metadata": row["metadata"], "chunks": row["chunks"], "embedded_chunks": row["embedded_chunks"]} for row in rows]
+    return json.dumps(safe_rows, ensure_ascii=False, indent=2, default=str) if safe_rows else "没有匹配的知识文档。"
+
+
 def benchmark_summary() -> str:
     """Run the deterministic golden-sample benchmark and return its compact report."""
     from evaluation.run_benchmark import run
@@ -144,6 +158,11 @@ def build_demo():
         with gr.Tab("知识库 / RAG"):
             knowledge_output = gr.Textbox(label="知识域统计", lines=8)
             gr.Button("刷新知识库统计").click(knowledge_summary, outputs=knowledge_output)
+            browse_domain = gr.Dropdown(["ALL", *[item.value for item in EvidenceType]], value="ALL", label="浏览知识域")
+            browse_profile = gr.Dropdown(["AUTO", *sorted(list_profiles())], value="AUTO", label="浏览专家 Profile")
+            browse_topic = gr.Textbox(label="主题过滤（可选）")
+            browse_output = gr.Textbox(label="知识文档摘要", lines=12)
+            gr.Button("浏览知识文档").click(browse_knowledge, [browse_domain, browse_profile, browse_topic], browse_output)
             gr.Markdown("统计按 `source_type` 展示逻辑知识域；正文仍通过 Research 检索和 Evidence 引用链路使用。")
         with gr.Tab("Benchmark 评测"):
             benchmark_output = gr.Textbox(label="评测摘要", lines=8)

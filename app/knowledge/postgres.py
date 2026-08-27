@@ -146,6 +146,26 @@ class PostgresKnowledgeRepository:
                 )
                 return cursor.fetchall()
 
+    def browse(self, source_type: str | None = None, expert_profile_id: str | None = None, topic: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
+        """List knowledge summaries for Admin without returning full chunk bodies."""
+        if limit < 1:
+            raise ValueError("limit must be positive")
+        with psycopg.connect(self.dsn, row_factory=dict_row) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """SELECT d.document_id, d.source_type, d.title, d.organization,
+                              d.source_url, d.metadata, count(c.chunk_id) AS chunks,
+                              count(c.embedding) AS embedded_chunks
+                       FROM knowledge_documents d
+                       LEFT JOIN knowledge_chunks c ON c.document_id = d.document_id
+                       WHERE (%s::text IS NULL OR d.source_type = %s)
+                         AND (%s::text IS NULL OR d.metadata ->> 'expert_profile_id' IS NULL OR d.metadata ->> 'expert_profile_id' = %s)
+                         AND (%s::text IS NULL OR d.metadata -> 'topics' ? %s)
+                       GROUP BY d.document_id ORDER BY d.created_at DESC LIMIT %s""",
+                    (source_type, source_type, expert_profile_id, expert_profile_id, topic, topic, limit),
+                )
+                return cursor.fetchall()
+
 
 def _lexical_relevance(row: dict[str, Any], term_count: int) -> float:
     """Fuse lexical signals without weakening the prior compatible relevance floor."""
