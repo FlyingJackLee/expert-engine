@@ -79,6 +79,8 @@ PostgreSQL 检索会融合全文排序、`pg_trgm` 相似度和词覆盖，并�
 
 Admin 后台功能规划见 [`docs/admin-console-plan.md`](docs/admin-console-plan.md)，当前优先开发数据集导出、知识库浏览、向量管理和黄金样本评测；权限与操作审计暂缓。
 
+各类数据的存储位置、RAG 使用阶段以及 Benchmark 边界见 [`docs/data-storage-guide.md`](docs/data-storage-guide.md)。
+
 采集目录中的城市 JSONL 数据可在不写数据库的情况下先做预检；正式导入默认只接受 `VERIFIED` 记录：
 
 ```bash
