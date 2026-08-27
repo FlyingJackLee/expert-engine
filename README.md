@@ -55,6 +55,8 @@ KNOWLEDGE_BACKEND=postgres uv run uvicorn app.main:app --reload
 
 跟进结果可通过 `POST /api/v1/expert/runs/{run_id}/feedback` 记录。存在至少一条反馈后，调用 `POST /api/v1/expert/runs/{run_id}/knowledge-candidates` 可生成 `PENDING_APPROVAL` 候选；通过 `GET /api/v1/expert/knowledge-candidates/{candidate_id}` 查询。候选不会自动发布或参与检索。
 
+专家可通过 `POST /api/v1/expert/knowledge-candidates/{candidate_id}/reviews` 审核候选。审核决定只允许写入一次，并作为审计记录保存；即使通过，也仍需后续发布流程才会进入正式知识库。
+
 此时相同的分析 API 将从 PostgreSQL（宿主机端口 `5433`）中读取证据。文档可通过 `POST /api/v1/knowledge/documents` 写入；原始文件对象存储、嵌入生成与 OpenSearch BM25 将在后续检索增强迭代接入。
 
 采集目录中的城市 JSONL 数据可在不写数据库的情况下先做预检；正式导入默认只接受 `VERIFIED` 记录：

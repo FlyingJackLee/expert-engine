@@ -249,6 +249,22 @@ class KnowledgeCandidateResult(KnowledgeCandidateDraft):
     source_feedback_ids: list[str] = Field(min_length=1)
 
 
+class CandidateReviewInput(BaseModel):
+    """Expert approval decision and auditable rationale for one knowledge candidate."""
+
+    decision: str = Field(pattern="^(APPROVE|REJECT)$")
+    reviewer_id: str = Field(min_length=2, max_length=100)
+    notes: str = Field(min_length=2, max_length=4_000)
+
+
+class CandidateReviewResult(BaseModel):
+    """Candidate state returned after an expert records an approval decision."""
+
+    candidate_id: str
+    decision: str
+    status: str
+
+
 class ExpertResult(BaseModel):
     """Full evidence-grounded response returned by an expert analysis run."""
     run_id: str

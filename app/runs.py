@@ -27,6 +27,8 @@ class RunRepository(Protocol):
         """Persist one candidate in its initial pending-approval state."""
     def get_candidate(self, candidate_id: str) -> dict | None:
         """Return a persisted candidate by its stable identifier."""
+    def record_candidate_review(self, candidate_id: str, decision: str, reviewer_id: str, notes: str) -> str | None:
+        """Audit an expert decision and return the resulting candidate status."""
 
 
 class InMemoryRunRepository:
@@ -87,6 +89,18 @@ class InMemoryRunRepository:
                 if candidate["candidate_id"] == candidate_id:
                     return candidate
         return None
+
+    def record_candidate_review(self, candidate_id: str, decision: str, reviewer_id: str, notes: str) -> str | None:
+        """Audit one local expert decision, allowing only pending candidates to change."""
+        candidate = self.get_candidate(candidate_id)
+        if candidate is None:
+            return None
+        if candidate["status"] != "PENDING_APPROVAL":
+            return "ALREADY_REVIEWED"
+        status = {"APPROVE": "APPROVED", "REJECT": "REJECTED"}[decision]
+        candidate["status"] = status
+        candidate.setdefault("reviews", []).append({"review_id": str(uuid4()), "decision": decision, "reviewer_id": reviewer_id, "notes": notes})
+        return status
 
 
 class PostgresRunRepository:
@@ -175,6 +189,22 @@ class PostgresRunRepository:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT candidate_id, run_id, status, content, source_feedback_ids FROM expert_knowledge_candidates WHERE candidate_id = %s", (candidate_id,))
                 return cursor.fetchone()
+
+    def record_candidate_review(self, candidate_id: str, decision: str, reviewer_id: str, notes: str) -> str | None:
+        """Atomically audit an expert decision for a candidate still awaiting approval."""
+        status = {"APPROVE": "APPROVED", "REJECT": "REJECTED"}[decision]
+        with psycopg.connect(self.dsn) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("UPDATE expert_knowledge_candidates SET status = %s WHERE candidate_id = %s AND status = %s", (status, candidate_id, "PENDING_APPROVAL"))
+                if cursor.rowcount == 0:
+                    cursor.execute("SELECT status FROM expert_knowledge_candidates WHERE candidate_id = %s", (candidate_id,))
+                    row = cursor.fetchone()
+                    return None if row is None else "ALREADY_REVIEWED"
+                cursor.execute(
+                    "INSERT INTO expert_knowledge_candidate_reviews (review_id, candidate_id, decision, reviewer_id, notes) VALUES (%s, %s, %s, %s, %s)",
+                    (str(uuid4()), candidate_id, decision, reviewer_id, notes),
+                )
+        return status
 
 
 _memory_repository = InMemoryRunRepository()

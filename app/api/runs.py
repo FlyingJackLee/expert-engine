@@ -7,7 +7,8 @@ from app.graph.main import expert_graph
 from app.knowledge.candidates import extract_candidate
 from app.runs import get_run_repository
 from app.schemas.domain import (AnalysisRequest, ExpertResult, FeedbackInput,
-                                FeedbackResult, KnowledgeCandidateResult, ManualReviewInput,
+                                FeedbackResult, CandidateReviewInput, CandidateReviewResult,
+                                KnowledgeCandidateResult, ManualReviewInput,
                                 ManualReviewResult)
 
 router = APIRouter(prefix="/api/v1/expert", tags=["expert-runs"])
@@ -94,3 +95,15 @@ def get_knowledge_candidate(candidate_id: str) -> dict:
     if candidate is None:
         raise HTTPException(status_code=404, detail="Knowledge candidate not found")
     return {**candidate["content"], "candidate_id": candidate["candidate_id"], "run_id": candidate["run_id"], "status": candidate["status"], "source_feedback_ids": candidate["source_feedback_ids"]}
+
+
+@router.post("/knowledge-candidates/{candidate_id}/reviews", response_model=CandidateReviewResult, status_code=201)
+def submit_candidate_review(candidate_id: str, review: CandidateReviewInput) -> dict:
+    """Record an expert's final approval or rejection of an unpublished candidate."""
+    status = get_run_repository().record_candidate_review(candidate_id, review.decision, review.reviewer_id, review.notes)
+    if status is None:
+        raise HTTPException(status_code=404, detail="Knowledge candidate not found")
+    if status == "ALREADY_REVIEWED":
+        raise HTTPException(status_code=409, detail="Knowledge candidate has already been reviewed")
+    logger.info("knowledge_candidate_reviewed candidate_id=%s decision=%s reviewer_id=%s", candidate_id, review.decision, review.reviewer_id)
+    return {"candidate_id": candidate_id, "decision": review.decision, "status": status}
