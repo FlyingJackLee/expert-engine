@@ -4,6 +4,7 @@ import time
 from fastapi import APIRouter, HTTPException
 
 from app.graph.main import expert_graph
+from app.observability import get_graph_events
 from app.graph.candidate_review import (begin_candidate_review,
                                         resume_candidate_review)
 from app.knowledge.candidates import extract_candidate
@@ -53,6 +54,12 @@ def get_run(run_id: str) -> dict:
         raise HTTPException(status_code=404, detail="Run not found")
     logger.debug("run_returned run_id=%s", run_id)
     return result
+
+
+@router.get("/runs/{run_id}/events")
+def get_run_events(run_id: str) -> dict:
+    """Return live-safe node events for any graph invocation in this process."""
+    return {"run_id": run_id, "events": get_graph_events(run_id)}
 
 
 @router.post("/runs/{run_id}/reviews", response_model=ManualReviewResult, status_code=201)
