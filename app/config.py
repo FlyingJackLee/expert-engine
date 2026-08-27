@@ -29,6 +29,10 @@ MATCHING_WEIGHTS = {"relevance": 0.5, "reliability": 0.3, "context": 0.2}
 # Retrieval fusion weights are quality controls, not business facts.
 RETRIEVAL_LEXICAL_WEIGHT = float(os.getenv("RETRIEVAL_LEXICAL_WEIGHT", "0.6"))
 RETRIEVAL_VECTOR_WEIGHT = float(os.getenv("RETRIEVAL_VECTOR_WEIGHT", "0.4"))
+BM25_ENABLED = os.getenv("BM25_ENABLED", "false").lower() == "true"
+BM25_BASE_URL = os.getenv("BM25_BASE_URL", "")
+BM25_INDEX = os.getenv("BM25_INDEX", "knowledge")
+BM25_API_KEY = os.getenv("BM25_API_KEY", "")
 
 # Models remain opt-in: business users can validate deterministic behavior without
 # requiring credentials or accidentally sending data to an external provider.
