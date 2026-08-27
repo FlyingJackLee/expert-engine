@@ -81,6 +81,8 @@ Admin 后台功能规划见 [`docs/admin-console-plan.md`](docs/admin-console-pl
 
 所有 Graph 入口（API、Benchmark、CLI、Gradio）共享节点事件观测接口：`GET /api/v1/expert/runs/{run_id}/events`。当前事件保存在进程内，适合实时查看；持久化轨迹表列入后续增强。
 
+启动 Gradio Admin 后，在“运行状态”页输入分析返回的 `run_id`，页面会每 2 秒自动刷新节点事件。
+
 各类数据的存储位置、RAG 使用阶段以及 Benchmark 边界见 [`docs/data-storage-guide.md`](docs/data-storage-guide.md)。
 
 采集目录中的城市 JSONL 数据可在不写数据库的情况下先做预检；正式导入默认只接受 `VERIFIED` 记录：

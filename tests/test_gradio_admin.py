@@ -1,7 +1,7 @@
 """Unit contracts for the optional dataset administration console."""
 from pathlib import Path
 
-from scripts.gradio_admin import benchmark_summary, browse_knowledge, export_validation_report, inspect_dataset
+from scripts.gradio_admin import benchmark_summary, browse_knowledge, export_validation_report, inspect_dataset, runtime_events
 
 
 def test_inspect_dataset_requires_all_uploads():
@@ -47,3 +47,8 @@ def test_browse_knowledge_returns_safe_metadata(monkeypatch):
     result = browse_knowledge("POLICY")
     assert '"document_id": "d1"' in result
     assert "content" not in result
+
+
+def test_runtime_events_requires_run_id():
+    """The live viewer gives operators a clear input requirement."""
+    assert "请输入 run_id" in runtime_events(" ")

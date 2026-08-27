@@ -8,6 +8,7 @@ from pathlib import Path
 
 from app.knowledge.dataset import DatasetValidationError, load_dataset
 from app.knowledge.postgres import PostgresKnowledgeRepository
+from app.observability import get_graph_events
 from app.experts import list_profiles
 from app.schemas.domain import EvidenceType
 
@@ -113,6 +114,14 @@ def benchmark_summary() -> str:
     return json.dumps({key: report[key] for key in ("total", "passed", "failed", "historical_knowledge_coverage")}, ensure_ascii=False, indent=2)
 
 
+def runtime_events(run_id: str) -> str:
+    """Render safe node events for a run so every Graph entrypoint is observable."""
+    if not run_id.strip():
+        return "请输入 run_id。"
+    events = get_graph_events(run_id.strip())
+    return json.dumps(events, ensure_ascii=False, indent=2) if events else "暂未发现运行事件；请确认 run_id 或等待 Graph 启动。"
+
+
 def _scoped_import(result, knowledge_domain: str, expert_profile_id: str):
     """Validate the selected knowledge domain and expert profile before operations."""
     if expert_profile_id != "AUTO" and expert_profile_id not in list_profiles():
@@ -167,6 +176,13 @@ def build_demo():
         with gr.Tab("Benchmark 评测"):
             benchmark_output = gr.Textbox(label="评测摘要", lines=8)
             gr.Button("运行黄金样本评测").click(benchmark_summary, outputs=benchmark_output)
+        with gr.Tab("运行状态"):
+            run_id = gr.Textbox(label="run_id")
+            events_output = gr.Textbox(label="节点事件", lines=16)
+            refresh = gr.Button("刷新运行事件")
+            refresh.click(runtime_events, run_id, events_output)
+            timer = gr.Timer(2.0)
+            timer.tick(runtime_events, run_id, events_output)
     return demo
 
 
