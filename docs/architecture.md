@@ -297,6 +297,7 @@ flowchart LR
 - 发布在同一 PostgreSQL 事务内写入 `knowledge_documents`、chunk 与 `expert_knowledge_publications`；发布记录保存候选来源、专家 ID 与递增版本。
 - Research 新增 `INTERNAL` 补充检索，使已发布经验可供后续推理参考，但不会替代政策或处室职责等主证据。
 - 黄金样本默认只进入离线评测器，不注入在线 Prompt；评测器统一输出主题、组织、处室、证据类型、Reviewer、评分和历史知识覆盖指标。
+- 数据导入通过可选 Gradio 管理界面完成，上传后复用 JSONL Dataset Validator，仅将 `VERIFIED` 记录写入知识库。
 
 ### 2026-08-27 — Expert Knowledge 安全退役
 
