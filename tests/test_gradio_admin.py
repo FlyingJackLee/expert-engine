@@ -36,7 +36,12 @@ def test_inspect_dataset_rejects_unknown_profile(tmp_path: Path):
 
 def test_benchmark_summary_exposes_quality_metrics(monkeypatch):
     """The Admin benchmark tab surfaces aggregate quality metrics only."""
-    monkeypatch.setattr("evaluation.run_benchmark.run", lambda: {"total": 2, "passed": 1, "failed": 1, "historical_knowledge_coverage": 0.5})
+    class _Process:
+        returncode = 0
+        stdout = '{"total": 2, "passed": 1, "failed": 1, "historical_knowledge_coverage": 0.5}'
+        stderr = ""
+
+    monkeypatch.setattr("scripts.gradio_admin.subprocess.run", lambda *_args, **_kwargs: _Process())
     summary = benchmark_summary()
     assert '"failed": 1' in summary
 

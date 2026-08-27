@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -108,9 +110,16 @@ def browse_knowledge(knowledge_domain: str = "ALL", expert_profile_id: str = "AU
 
 def benchmark_summary() -> str:
     """Run the deterministic golden-sample benchmark and return its compact report."""
-    from evaluation.run_benchmark import run
-
-    report = run()
+    environment = {"LLM_ENABLED": "false", "KNOWLEDGE_BACKEND": "seed", "HITL_CHECKPOINT_BACKEND": "memory"}
+    process_env = {**environment, **__import__("os").environ}
+    process_env.update(environment)
+    completed = subprocess.run([sys.executable, "-m", "evaluation.run_benchmark"], capture_output=True, text=True, env=process_env, check=False)
+    if completed.returncode != 0:
+        return f"Benchmark 运行失败：{completed.stderr.strip() or completed.stdout.strip()}"
+    try:
+        report = json.loads(completed.stdout)
+    except json.JSONDecodeError:
+        return f"Benchmark 输出无法解析：{completed.stdout.strip()}"
     return json.dumps({key: report[key] for key in ("total", "passed", "failed", "historical_knowledge_coverage")}, ensure_ascii=False, indent=2)
 
 
