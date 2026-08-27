@@ -16,6 +16,7 @@ class ExpertState(TypedDict, total=False):
     research_city: str | None
     research_history: list[dict[str, Any]]
     evidence: list[dict[str, Any]]
+    historical_knowledge: list[dict[str, Any]]
     needs: list[dict[str, Any]]
     organizations: list[dict[str, Any]]
     departments: list[dict[str, Any]]

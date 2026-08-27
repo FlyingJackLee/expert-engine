@@ -63,6 +63,8 @@ KNOWLEDGE_BACKEND=postgres uv run uvicorn app.main:app --reload
 
 经复核后，可调用 `POST /api/v1/expert/knowledge-publications/{publication_id}/restore` 恢复已退役版本。恢复会重新启用内部检索可见性，并以 `RESTORED` 事件记录在同一版本治理审计链中。
 
+每次分析会将检索到的已发布 `INTERNAL` 知识单独返回为 `historical_knowledge`，并将其作为受约束 LLM 商务综合的补充上下文。历史经验不能替代当前事件的政策、职责或项目原始证据。
+
 此时相同的分析 API 将从 PostgreSQL（宿主机端口 `5433`）中读取证据。文档可通过 `POST /api/v1/knowledge/documents` 写入；原始文件对象存储、嵌入生成与 OpenSearch BM25 将在后续检索增强迭代接入。
 
 采集目录中的城市 JSONL 数据可在不写数据库的情况下先做预检；正式导入默认只接受 `VERIFIED` 记录：

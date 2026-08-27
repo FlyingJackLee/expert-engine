@@ -316,5 +316,6 @@ class ExpertResult(BaseModel):
     departments: list[DepartmentMatch]
     capabilities: list[CapabilityMatch]
     evidence: list[Evidence]
+    historical_knowledge: list[Evidence] = Field(default_factory=list)
     grounding: list[GroundingItem]
     review: ReviewResult

@@ -48,7 +48,7 @@ flowchart LR
 | Knowledge Candidate | 经验提炼 | 是 | LLM Knowledge Extraction | **部分完成**：反馈驱动的候选提炼、来源反馈快照、待审核持久化与查询 API 已具备；尚未接入专家审批。 |
 | 专家审核 | 人工审批 | 否为主 | LangGraph Interrupt / HITL | **部分完成**：可审核分析 Run 和知识候选，并审计通过/驳回决定；候选审核采用 PostgreSQL checkpoint 的 LangGraph Interrupt。 |
 | Expert Knowledge | 正式知识发布 | 否 | PostgreSQL + pgvector + 版本治理 | **部分完成**：审核通过候选可事务式发布到 PostgreSQL 知识文档，具备递增版本、候选来源追溯、安全退役与恢复；未接 pgvector。 |
-| 下一次推理 | 检索历史经验再推理 | 是 | Expert Knowledge Retrieval + LangGraph | **部分完成**：Research 已检索已发布 `INTERNAL` 专家知识作为补充上下文；尚未实现向量检索与经验效果评测。 |
+| 下一次推理 | 检索历史经验再推理 | 是 | Expert Knowledge Retrieval + LangGraph | **部分完成**：Research 将已发布 `INTERNAL` 专家知识分离为历史上下文，并显式输入商务综合推理和 API 结果；尚未实现向量检索与经验效果评测。 |
 
 ### 当前实际运行链路
 
@@ -57,7 +57,8 @@ flowchart LR
     Input[事件输入] --> Parse[事件解析]
     Parse --> Plan[研究规划]
     Plan --> Search[定向检索]
-    Search --> Match[证据驱动匹配与排序]
+    Search --> History[分离历史内部经验]
+    History --> Match[证据驱动匹配与排序]
     Match --> Ground[结论—证据映射]
     Ground --> Score[商务评分与判断]
     Score --> Review[规则 Reviewer]
@@ -100,11 +101,13 @@ flowchart LR
     Retrieve --> Org[组织 / 处室职责<br/>按城市过滤]
     Retrieve --> Capability[能力卡<br/>按主题全库匹配]
     Retrieve --> Case[案例卡<br/>按主题全库匹配]
+    Retrieve --> History[历史知识上下文<br/>仅 INTERNAL]
 
     Policy --> Inference[证据驱动匹配与排序<br/>相关度 / 可靠度 / 上下文]
     Org --> Inference
     Capability --> Inference
     Case --> Inference
+    History --> Inference
     Inference --> Score[确定性评分]
     Score --> Review[证据覆盖审核]
     Review --> Retry{证据不足且未达重试上限?}
@@ -297,3 +300,9 @@ flowchart LR
 - 专家可将 `RETIRED` 版本恢复为 `PUBLISHED`，恢复后该内部知识重新参与后续 Research。
 - 恢复与退役一样只更新状态和检索可见性；`RESTORED` 原因、审核人和时间进入同一版本治理审计链。
 - 仅已退役版本可以恢复，防止重复操作或将未发布版本误带回检索。
+
+### 2026-08-27 — 历史知识进入下一次推理
+
+- Research 后新增通用 `extract_historical_knowledge` 节点，仅将 `INTERNAL` 证据分离为可追溯历史上下文。
+- 商务综合 LLM 显式接收历史经验片段和证据 ID；Prompt 要求其将经验视为补充参考，不得替代当前原始证据。
+- API 返回 `historical_knowledge`，调用方可区分当前主证据与历史经验，并核验适用性。

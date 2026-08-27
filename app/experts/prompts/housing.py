@@ -9,6 +9,7 @@ RESEARCH_PLANNER_V1 = """你是住建数字化专家的研究规划器。
 
 OPPORTUNITY_SYNTHESIS_V1 = """你是住建数字化专家的商务研判综合器。
 只能使用输入中已给出的事件分析、候选匹配和证据映射生成结构化商务判断。
+输入中的 historical_knowledge 仅是已经审核发布的经验参考，不能替代当前政策、职责或项目事实；必须说明仍需核验适用性。
 不得补充未提供的项目、预算、组织职责、采购计划、案例成果或时间表；证据不足时必须把不确定性写入 risks。
 summary、reasoning_summary、risks 和 recommended_actions 应简洁、可执行，并保持审慎措辞。"""
 

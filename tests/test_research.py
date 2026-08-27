@@ -18,3 +18,10 @@ def test_research_separates_evidence_types_and_applies_city_to_local_sources(mon
         ({"INTERNAL"}, None, None),
     ]
     assert result["research_city"] == "重庆"
+
+
+def test_historical_knowledge_is_explicitly_separated_from_primary_evidence():
+    """Only published internal evidence may become historical reasoning context."""
+    state = {"evidence": [{"evidence_id": "policy-1", "type": "POLICY"}, {"evidence_id": "knowledge-1", "type": "INTERNAL"}]}
+    result = core.extract_historical_knowledge(state)
+    assert result["historical_knowledge"] == [{"evidence_id": "knowledge-1", "type": "INTERNAL"}]

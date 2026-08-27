@@ -114,6 +114,12 @@ def research(state: dict) -> dict:
     return {"evidence": ranked_evidence, "research_city": city, "research_history": history}
 
 
+def extract_historical_knowledge(state: dict) -> dict:
+    """Separate published internal lessons from primary evidence for transparent use."""
+    history = [item for item in state["evidence"] if str(item["type"]) == "INTERNAL"]
+    return {"historical_knowledge": history}
+
+
 def refine_research(state: dict) -> dict:
     """Turn reviewer gaps into additional retrieval questions without asserting facts."""
     existing_questions = list(state["research_plan"]["questions"])
@@ -233,7 +239,7 @@ def synthesize_opportunity(state: dict) -> dict:
     need = state["needs"][0]
     org = state["organizations"][0]
     runtime = load_runtime(state["expert_profile"])
-    synthesis_context = {"event_analysis": state["event_analysis"], "needs": state["needs"], "organizations": state["organizations"], "departments": state["departments"], "capabilities": state["capabilities"], "grounding": state["grounding"]}
+    synthesis_context = {"event_analysis": state["event_analysis"], "needs": state["needs"], "organizations": state["organizations"], "departments": state["departments"], "capabilities": state["capabilities"], "grounding": state["grounding"], "historical_knowledge": [{"evidence_id": item["evidence_id"], "title": item["title"], "content": item["content"]} for item in state.get("historical_knowledge", [])]}
     try:
         llm_result = gateway.structured_generate("opportunity_synthesis", runtime.opportunity_synthesis_prompt, json.dumps(synthesis_context, ensure_ascii=False), Opportunity)
     except ValidationError:
@@ -241,7 +247,8 @@ def synthesize_opportunity(state: dict) -> dict:
         llm_result = None
     if llm_result:
         return {"opportunity": llm_result.model_dump()}
-    return {"opportunity": {"summary": f"建议围绕{need['name']}开展商机跟进。", "stage": "EARLY_OPPORTUNITY", "reasoning_summary": f"事件信号指向{need['name']}，{org['name']}是优先研判对象。", "risks": ["当前为种子知识验证结果，需补充目标地区的正式文件和实际部门职责。"], "recommended_actions": ["核验当地实施方案及采购计划。", "与候选牵头处室确认建设范围、预算和时间表。"]}}
+    history_note = "已检索到历史内部经验，仍需以当前原始证据核验其适用性。" if state.get("historical_knowledge") else ""
+    return {"opportunity": {"summary": f"建议围绕{need['name']}开展商机跟进。", "stage": "EARLY_OPPORTUNITY", "reasoning_summary": f"事件信号指向{need['name']}，{org['name']}是优先研判对象。", "risks": ["当前为种子知识验证结果，需补充目标地区的正式文件和实际部门职责。", *([history_note] if history_note else [])], "recommended_actions": ["核验当地实施方案及采购计划。", "与候选牵头处室确认建设范围、预算和时间表。"]}}
 
 
 def score_result(state: dict) -> dict:
@@ -278,5 +285,5 @@ def review(state: dict) -> dict:
 def finalize(state: dict) -> dict:
     """Assemble the public expert response from the completed graph state."""
     profile = state["expert_profile"]
-    result = {"run_id": state["run_id"], "expert": {"id": profile["id"], "version": profile["version"]}, "event": state["raw_event"], "opportunity": state["opportunity"], "score": state["score"], "needs": state["needs"], "organizations": state["organizations"], "departments": state["departments"], "capabilities": state["capabilities"], "evidence": state["evidence"], "grounding": state["grounding"], "review": state["review_result"]}
+    result = {"run_id": state["run_id"], "expert": {"id": profile["id"], "version": profile["version"]}, "event": state["raw_event"], "opportunity": state["opportunity"], "score": state["score"], "needs": state["needs"], "organizations": state["organizations"], "departments": state["departments"], "capabilities": state["capabilities"], "evidence": state["evidence"], "historical_knowledge": state.get("historical_knowledge", []), "grounding": state["grounding"], "review": state["review_result"]}
     return {"status": "COMPLETED", "final_result": result}
