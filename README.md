@@ -75,7 +75,7 @@ PostgreSQL 检索会融合全文排序、`pg_trgm` 相似度和词覆盖，并�
 
 切换模型后可显式运行 `uv run python -m scripts.reindex_embeddings` 重建现有 chunk 向量；脚本按批次处理并记录 `embedding_model`，embedding 未启用时会安全跳过。
 
-数据集管理界面为可选 Gradio 组件：先执行 `uv sync --extra admin`，再运行 `uv run python -m scripts.gradio_admin`。界面只允许通过现有 JSONL 校验器导入 `VERIFIED` 记录，草稿会被跳过。
+数据集管理界面为可选 Gradio 组件：先执行 `uv sync --extra admin`，再运行 `uv run python -m scripts.gradio_admin`。界面只允许通过现有 JSONL 校验器导入 `VERIFIED` 记录，草稿会被跳过；也支持导出规范化 `VERIFIED` JSONL 和校验报告。
 
 Admin 后台功能规划见 [`docs/admin-console-plan.md`](docs/admin-console-plan.md)，当前优先开发数据集导出、知识库浏览、向量管理和黄金样本评测；权限与操作审计暂缓。
 

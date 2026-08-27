@@ -1,7 +1,7 @@
 """Unit contracts for the optional dataset administration console."""
 from pathlib import Path
 
-from scripts.gradio_admin import inspect_dataset
+from scripts.gradio_admin import export_validation_report, inspect_dataset
 
 
 def test_inspect_dataset_requires_all_uploads():
@@ -14,3 +14,11 @@ def test_inspect_dataset_surfaces_schema_errors(tmp_path: Path):
     path = tmp_path / "events.jsonl"
     path.write_text("{}\n", encoding="utf-8")
     assert "校验失败" in inspect_dataset([str(path)])
+
+
+def test_export_validation_report_is_machine_readable_for_invalid_upload(tmp_path: Path):
+    """Failed validation is exportable without attempting a database write."""
+    path = tmp_path / "events.jsonl"
+    path.write_text("{}\n", encoding="utf-8")
+    report = export_validation_report([str(path)])
+    assert '"status": "INVALID"' in report
