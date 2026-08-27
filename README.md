@@ -21,6 +21,7 @@
 cp .env.example .env
 uv sync --all-groups
 uv run uvicorn app.main:app --reload
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 接口文档：`http://127.0.0.1:8000/docs`。
@@ -87,6 +88,8 @@ Admin 后台功能规划见 [`docs/admin-console-plan.md`](docs/admin-console-pl
 各类数据的存储位置、RAG 使用阶段以及 Benchmark 边界见 [`docs/data-storage-guide.md`](docs/data-storage-guide.md)。
 
 完整接口说明见 [`docs/api.md`](docs/api.md)，包括 Dify 接入、运行状态、反馈和专家知识闭环。
+
+面向业务人员的数据收集说明见 [`docs/data-collection/business-guide.md`](docs/data-collection/business-guide.md)，包含文件夹结构、填写示例、状态定义和提交检查清单。
 
 采集目录中的城市 JSONL 数据可在不写数据库的情况下先做预检；正式导入默认只接受 `VERIFIED` 记录：
 
